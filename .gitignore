@@ -8,3 +8,23 @@
 
 # 로그
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / 프론트
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# DB 백업
+*.sql
+
+# 빌드 산출물
+dist/
+build/

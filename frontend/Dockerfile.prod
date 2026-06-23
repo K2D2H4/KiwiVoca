@@ -1,0 +1,17 @@
+# 키위보카 프론트 — 배포용 정적 빌드
+# 빌드 산출물(/app/dist)을 compose 에서 named volume 으로 복사해 nginx 가 서빙.
+FROM node:20-alpine
+
+WORKDIR /app
+
+ARG VITE_API_BASE=/api
+ENV VITE_API_BASE=${VITE_API_BASE}
+
+COPY package.json ./
+RUN npm install --no-audit --no-fund
+
+COPY . .
+RUN npm run build
+
+# compose command 에서 /app/dist → 공유 volume 으로 복사
+CMD ["sh", "-c", "echo 'build ready at /app/dist'"]

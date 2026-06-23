@@ -1,0 +1,35 @@
+"""컨테이너 시작 시 1회 실행 — DB 준비 대기 + 테이블 생성.
+
+MVP 단계에서는 Base.metadata.create_all 로 스키마를 만든다.
+스키마 변경 이력 관리가 필요해지면 Alembic 으로 전환한다.
+"""
+import time
+
+from sqlalchemy import text
+
+from app.database import Base, engine
+# 모델을 import 해야 Base.metadata 에 테이블이 등록된다 (Phase 1+ 에서 채워짐)
+from app import models  # noqa: F401
+
+
+def wait_for_db(max_retries: int = 30, delay: float = 2.0) -> None:
+    for attempt in range(1, max_retries + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print(f"[bootstrap] DB ready (attempt {attempt})")
+            return
+        except Exception as exc:  # noqa: BLE001
+            print(f"[bootstrap] waiting for DB... ({attempt}/{max_retries}) {exc}")
+            time.sleep(delay)
+    raise RuntimeError("DB connection failed after retries")
+
+
+def main() -> None:
+    wait_for_db()
+    Base.metadata.create_all(bind=engine)
+    print("[bootstrap] schema ready")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-cream text-seed font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 제목/디스플레이는 라운드 폰트 */
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+  /* 모바일 입력 줌 방지: 폼 컨트롤 최소 16px */
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  /* 키위 씨앗 점박이 텍스처 — 그린 영역에 깊이감 부여 */
+  .seed-dots {
+    background-image: radial-gradient(
+      rgba(46, 58, 36, 0.12) 1.5px,
+      transparent 1.5px
+    );
+    background-size: 18px 18px;
+    background-position: -4px -4px;
+  }
+
+  /* 부드러운 크림 그라데이션 배경 (페이지 분위기) */
+  .bg-orchard {
+    background-image: radial-gradient(
+        120% 80% at 100% 0%,
+        rgba(168, 224, 143, 0.35) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        90% 70% at 0% 100%,
+        rgba(255, 138, 122, 0.12) 0%,
+        transparent 50%
+      );
+  }
+
+  /* 스켈레톤 시머 */
+  .skeleton-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      rgba(46, 58, 36, 0.06) 30%,
+      rgba(46, 58, 36, 0.12) 50%,
+      rgba(46, 58, 36, 0.06) 70%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* 가로 스크롤 차단 헬퍼 */
+  .no-x {
+    overflow-x: hidden;
+  }
+}
