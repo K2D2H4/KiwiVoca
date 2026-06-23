@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# 환경변수 / 시크릿
+.env
+.env.local
+*.local
+
+# 로그
+*.log
