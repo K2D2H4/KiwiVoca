@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, decks, health
+from app.routers import auth, decks, health, oauth
 from app.routers import import_
 from app.routers import study
 from app.routers import stats
@@ -22,6 +22,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(oauth.router)
 app.include_router(decks.router)
 app.include_router(import_.router)
 app.include_router(study.router)

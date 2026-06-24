@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # CORS — 콤마 구분
     CORS_ALLOWED_ORIGINS: str = "http://localhost:8080"
 
+    # OAuth 콜백 후 토큰을 fragment 로 넘겨줄 프론트 base URL
+    FRONTEND_BASE_URL: str = "http://localhost:8080"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
