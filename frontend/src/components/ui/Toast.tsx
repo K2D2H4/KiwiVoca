@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -53,16 +52,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [remove]
   );
 
-  // 안정적인 컨텍스트 값 — 매 렌더 새 객체면 useEffect 의존성으로 쓸 때 무한 루프
-  const api = useMemo<ToastApi>(
-    () => ({
-      show,
-      success: (m) => show(m, "success"),
-      error: (m) => show(m, "error"),
-      info: (m) => show(m, "info"),
-    }),
-    [show]
-  );
+  const api: ToastApi = {
+    show,
+    success: (m) => show(m, "success"),
+    error: (m) => show(m, "error"),
+    info: (m) => show(m, "info"),
+  };
 
   return (
     <ToastContext.Provider value={api}>

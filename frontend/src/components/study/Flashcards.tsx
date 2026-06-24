@@ -119,7 +119,7 @@ export default function Flashcards({
                   y: depth * 14,
                   opacity: 1 - depth * 0.18,
                 }}
-                transition={spring.crisp}
+                transition={spring.smooth}
               />
             );
           })}
@@ -138,19 +138,16 @@ export default function Flashcards({
               dragSnapToOrigin
               dragElastic={0.55}
               onDragEnd={onDragEnd}
-              // x:0 명시 — 던진 카드의 x(±560)가 공유 MotionValue에 남아
-              // 다음 카드가 화면 밖에 고정되는 버그 방지(매 카드 mount 시 중앙 리셋)
-              initial={{ x: 0, scale: 0.94, y: 14, opacity: 0 }}
+              initial={{ scale: 0.94, y: 14, opacity: 0 }}
               animate={
                 flyAway !== 0
                   ? {
                       x: exitX,
                       rotate: flyAway * 22,
                       opacity: 0,
-                      // 더 빠른 throw-off → 다음 카드가 더 빨리 등장
-                      transition: { duration: 0.2, ease: [0.36, 0, 0.66, 1] },
+                      transition: { duration: 0.32, ease: [0.4, 0, 0.6, 1] },
                     }
-                  : { x: 0, scale: 1, y: 0, opacity: 1, transition: spring.crisp }
+                  : { scale: 1, y: 0, opacity: 1, transition: spring.smooth }
               }
               onAnimationStart={() => {
                 // 새 카드 enter(flyAway===0) 시작 시 가드 재무장
@@ -178,18 +175,11 @@ export default function Flashcards({
                 {t("study.didntKnow")}
               </motion.span>
 
-              {/* 3D flip 컨테이너 — button 대신 div(내부 SpeakButton 중첩 버튼 방지) */}
-              <motion.div
-                role="button"
-                tabIndex={0}
+              {/* 3D flip 컨테이너 */}
+              <motion.button
+                type="button"
                 onClick={() => setFlipped((p) => !p)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setFlipped((p) => !p);
-                  }
-                }}
-                className="relative block w-full cursor-pointer text-left"
+                className="relative block w-full text-left"
                 style={{ transformStyle: "preserve-3d" }}
                 animate={{ rotateY: flipped ? 180 : 0 }}
                 transition={
@@ -250,7 +240,7 @@ export default function Flashcards({
                     </span>
                   )}
                 </span>
-              </motion.div>
+              </motion.button>
             </motion.div>
           </AnimatePresence>
         </div>
