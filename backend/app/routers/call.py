@@ -211,19 +211,26 @@ async def _downlink(websocket: WebSocket, session) -> None:
     """Gemini → 클라이언트 다운링크.
 
     모델 오디오 청크(PCM16 24kHz)를 binary WS 메시지로 그대로 전달한다.
+
+    google-genai 의 session.receive() 제너레이터는 한 턴(turn_complete)마다
+    종료되므로, 다음 턴을 계속 수신하려면 외부 while 루프로 다시 호출해야 한다.
+    (이 루프가 없으면 AI 첫 턴 종료 시 코루틴이 완료돼 통화가 끊긴다.)
+    연결이 실제 끊기면 내부 receive() 가 예외를 던져 루프를 탈출하고, 사용자가
+    통화를 끊으면 uplink 가 먼저 완료되어 이 태스크는 바깥에서 cancel 된다.
     """
-    async for response in session.receive():
-        sc = response.server_content
-        if sc is None:
-            continue
-        # parts 가 None 인 메시지(메타데이터 전용 등)에도 통화가 끊기지 않도록 방어
-        if sc.model_turn and sc.model_turn.parts:
-            for part in sc.model_turn.parts:
-                if part.inline_data and part.inline_data.data:
-                    await websocket.send_bytes(part.inline_data.data)
-        # turn_complete 신호를 프론트에 알림(다음 발화 가능 표시용)
-        if sc.turn_complete:
-            await websocket.send_text(json.dumps({"type": "turn_complete"}))
+    while True:
+        async for response in session.receive():
+            sc = response.server_content
+            if sc is None:
+                continue
+            # parts 가 None 인 메시지(메타데이터 전용 등)에도 통화가 끊기지 않도록 방어
+            if sc.model_turn and sc.model_turn.parts:
+                for part in sc.model_turn.parts:
+                    if part.inline_data and part.inline_data.data:
+                        await websocket.send_bytes(part.inline_data.data)
+            # turn_complete 신호를 프론트에 알림(다음 발화 가능 표시용)
+            if sc.turn_complete:
+                await websocket.send_text(json.dumps({"type": "turn_complete"}))
 
 
 async def _safe_send_error(websocket: WebSocket, message: str) -> None:

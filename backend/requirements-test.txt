@@ -1,0 +1,6 @@
+# call WS 회귀 테스트 전용 의존성 (런타임 의존성 아님).
+# 설치:  docker exec kiwivoca-backend pip install -r requirements-test.txt
+#  또는  pip install -r requirements-test.txt  (로컬 venv)
+pytest==8.3.4
+# starlette TestClient 의 WebSocket 지원에 필요
+wsproto==1.2.0
