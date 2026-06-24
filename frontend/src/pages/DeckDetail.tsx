@@ -1,5 +1,5 @@
 // 덱 상세 — 헤더(제목/삭제) + 메타 + 학습/사진 CTA + 카드 추가 폼 + 카드 목록 편집.
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -65,8 +65,11 @@ export default function DeckDetail() {
   // 사진 가져오기 커밋 직후 토스트 (location.state.imported)
   const importedCount = (location.state as { imported?: number } | null)
     ?.imported;
+  // StrictMode 이중 호출/재렌더에도 1회만 — replaceState는 router state를 못 지움
+  const importToastShown = useRef(false);
   useEffect(() => {
-    if (!importedCount) return;
+    if (!importedCount || importToastShown.current) return;
+    importToastShown.current = true;
     toast.success(t("import.committed", { count: importedCount }));
     // state 소비 — 새로고침/뒤로가기 시 재노출 방지
     window.history.replaceState({}, "");
