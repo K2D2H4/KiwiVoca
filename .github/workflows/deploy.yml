@@ -15,16 +15,21 @@ jobs:
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          PROD_ENV_B64: ${{ secrets.PROD_ENV_B64 }}
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          envs: PROD_ENV_B64
           command_timeout: 30m
           script: |
             set -e
             cd ~/KiwiVoca
             git fetch --depth 1 origin main
             git reset --hard origin/main
+            # GitHub Secret(PROD_ENV_B64) → VM .env 자동 주입 (운영 env의 단일 출처)
+            printf '%s' "$PROD_ENV_B64" | base64 -d > ~/KiwiVoca/.env
             sudo docker compose -f docker-compose.prod.yml -f docker-compose.https.yml up -d --build
             sudo docker compose -f docker-compose.prod.yml -f docker-compose.https.yml restart nginx
             sudo docker image prune -f
