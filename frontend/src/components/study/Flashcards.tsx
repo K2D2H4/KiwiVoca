@@ -119,7 +119,7 @@ export default function Flashcards({
                   y: depth * 14,
                   opacity: 1 - depth * 0.18,
                 }}
-                transition={spring.smooth}
+                transition={spring.crisp}
               />
             );
           })}
@@ -147,9 +147,10 @@ export default function Flashcards({
                       x: exitX,
                       rotate: flyAway * 22,
                       opacity: 0,
-                      transition: { duration: 0.32, ease: [0.4, 0, 0.6, 1] },
+                      // 더 빠른 throw-off → 다음 카드가 더 빨리 등장
+                      transition: { duration: 0.2, ease: [0.36, 0, 0.66, 1] },
                     }
-                  : { x: 0, scale: 1, y: 0, opacity: 1, transition: spring.smooth }
+                  : { x: 0, scale: 1, y: 0, opacity: 1, transition: spring.crisp }
               }
               onAnimationStart={() => {
                 // 새 카드 enter(flyAway===0) 시작 시 가드 재무장
