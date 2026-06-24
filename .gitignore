@@ -25,6 +25,10 @@ frontend/.vite/
 # DB 백업
 *.sql
 
+# 런타임 생성물 (서버 TTS 오디오 캐시)
+backend/tts_cache/
+*.wav
+
 # 빌드 산출물
 dist/
 build/
