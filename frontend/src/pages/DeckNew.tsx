@@ -76,7 +76,7 @@ export default function DeckNew() {
             placeholder={t("deck.descriptionPlaceholder")}
             rows={2}
             maxLength={200}
-            className="w-full resize-none rounded-2xl border-2 border-transparent bg-cream/70 px-4 py-3.5 text-base text-seed placeholder:text-seed/30 shadow-inner-soft transition focus:border-kiwi focus:bg-white focus:outline-none"
+            className="w-full resize-none rounded-2xl border-2 border-transparent bg-cream/70 px-4 py-3.5 text-base text-seed placeholder:text-seed/30 shadow-inner-soft transition focus:border-kiwi focus:bg-surface focus:outline-none"
           />
         </label>
 

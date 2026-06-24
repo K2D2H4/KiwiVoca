@@ -2,8 +2,18 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Layers, BookText, Languages, LogOut, Sparkles } from "lucide-react";
+import {
+  Layers,
+  BookText,
+  Languages,
+  LogOut,
+  Sparkles,
+  Palette,
+  BarChart3,
+  ChevronRight,
+} from "lucide-react";
 import LanguageSwitcher from "../components/LanguageSwitcher";
+import ThemeToggle from "../components/ThemeToggle";
 import { Avatar, Card, Skeleton, Button } from "../components/ui";
 import { useAuthStore } from "../store/authStore";
 import { useDecks } from "../hooks/useDecks";
@@ -61,6 +71,48 @@ export default function Profile() {
             value={isLoading ? null : cardCount}
             label={t("profile.statCards")}
           />
+        </motion.div>
+
+        {/* 내 통계 — /stats 진입 */}
+        <motion.div variants={staggerItem}>
+          <button
+            type="button"
+            onClick={() => navigate("/stats")}
+            className="group block w-full rounded-3xl text-left outline-none focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+          >
+            <Card interactive padding="md">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pop-soft text-pop-dark">
+                  <BarChart3 size={18} strokeWidth={2.3} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-bold text-seed">
+                    {t("stats.myStats")}
+                  </p>
+                  <p className="truncate text-caption text-seed/50">
+                    {t("stats.myStatsHint")}
+                  </p>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-seed/25 transition group-hover:translate-x-0.5 group-hover:text-seed/45"
+                />
+              </div>
+            </Card>
+          </button>
+        </motion.div>
+
+        {/* 테마 설정 */}
+        <motion.div variants={staggerItem}>
+          <Card padding="md">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-kiwi-100 text-kiwi-700">
+                <Palette size={18} strokeWidth={2.3} />
+              </span>
+              <p className="text-body font-bold text-seed">{t("theme.label")}</p>
+            </div>
+            <ThemeToggle variant="full" />
+          </Card>
         </motion.div>
 
         {/* 언어 설정 */}

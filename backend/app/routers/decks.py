@@ -4,7 +4,7 @@
 타인 리소스 / 미존재 리소스는 일괄 404 로 응답해 존재 여부 노출을 막는다.
 카드는 부모 deck 의 소유권으로 검증한다.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,12 @@ from app.schemas.card import (
     CardResponse,
     CardUpdate,
 )
-from app.schemas.deck import DeckCreate, DeckResponse, DeckUpdate
+from app.schemas.deck import (
+    DeckCreate,
+    DeckResponse,
+    DeckUpdate,
+    PublicDeckResponse,
+)
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/api", tags=["decks"])
@@ -30,9 +35,23 @@ _CARD_NOT_FOUND = HTTPException(
 
 
 def _get_owned_deck(deck_id: int, user: User, db: Session) -> Deck:
-    """현재 사용자 소유의 덱을 조회. 없거나 타인 소유면 404."""
+    """현재 사용자 소유의 덱을 조회. 없거나 타인 소유면 404.
+
+    수정/삭제/카드편집 등 쓰기 작업에 사용한다.
+    """
     deck = db.query(Deck).filter(Deck.id == deck_id, Deck.user_id == user.id).first()
     if deck is None:
+        raise _NOT_FOUND
+    return deck
+
+
+def _get_readable_deck(deck_id: int, user: User, db: Session) -> Deck:
+    """읽기 가능한 덱을 조회 — 소유자 OR 공개 덱이면 반환.
+
+    비공개 + 비소유면 404 (존재 노출 회피). 읽기 전용(조회/카드 목록)에만 사용한다.
+    """
+    deck = db.query(Deck).filter(Deck.id == deck_id).first()
+    if deck is None or (deck.user_id != user.id and not deck.is_public):
         raise _NOT_FOUND
     return deck
 
@@ -91,6 +110,59 @@ def list_decks(
     return [_deck_to_response(d, counts.get(d.id, 0)) for d in decks]
 
 
+@router.get("/decks/public", response_model=list[PublicDeckResponse])
+def list_public_decks(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None, max_length=200),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[PublicDeckResponse]:
+    """공개 덱 목록 (최신순). 인증 필요. q 지정 시 title 부분검색.
+
+    민감정보(user_id 등)는 노출하지 않고 소유자 display_name(owner_name)만 제공한다.
+    """
+    # 공개 덱 + 소유자 join, 덱별 카드 수는 별도 집계로 N+1 회피
+    deck_q = (
+        db.query(Deck, User.display_name)
+        .join(User, Deck.user_id == User.id)
+        .filter(Deck.is_public.is_(True))
+    )
+    if q:
+        deck_q = deck_q.filter(Deck.title.ilike(f"%{q}%"))
+    rows = (
+        deck_q.order_by(Deck.created_at.desc(), Deck.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    if not rows:
+        return []
+
+    deck_ids = [deck.id for deck, _ in rows]
+    counts = dict(
+        db.execute(
+            select(Card.deck_id, func.count(Card.id))
+            .where(Card.deck_id.in_(deck_ids))
+            .group_by(Card.deck_id)
+        ).all()
+    )
+    return [
+        PublicDeckResponse(
+            id=deck.id,
+            title=deck.title,
+            description=deck.description,
+            lang_term=deck.lang_term,
+            lang_def=deck.lang_def,
+            kind=deck.kind,
+            card_count=counts.get(deck.id, 0),
+            owner_name=owner_name,
+            created_at=deck.created_at,
+        )
+        for deck, owner_name in rows
+    ]
+
+
 @router.post("/decks", response_model=DeckResponse, status_code=status.HTTP_201_CREATED)
 def create_deck(
     payload: DeckCreate,
@@ -119,8 +191,11 @@ def get_deck(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> DeckResponse:
-    """덱 상세 (card_count 포함). 카드 목록은 GET /decks/{id}/cards 로 별도 조회."""
-    deck = _get_owned_deck(deck_id, current_user, db)
+    """덱 상세 (card_count 포함). 소유자 OR 공개 덱이면 200, 그 외 404.
+
+    카드 목록은 GET /decks/{id}/cards 로 별도 조회.
+    """
+    deck = _get_readable_deck(deck_id, current_user, db)
     return _deck_to_response(deck, _deck_card_count(deck.id, db))
 
 
@@ -155,6 +230,60 @@ def delete_deck(
     db.commit()
 
 
+@router.post(
+    "/decks/{deck_id}/copy",
+    response_model=DeckResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def copy_deck(
+    deck_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DeckResponse:
+    """공개 덱(또는 본인 덱)을 현재 사용자의 새 덱으로 복제.
+
+    덱 메타 + 카드 전부 복사한다. 새 덱은 is_public=false, 진척(card_progress)은 복사하지 않는다.
+    비공개 + 비소유 원본은 404.
+    """
+    source = _get_readable_deck(deck_id, current_user, db)
+
+    # 1) 덱 메타 복제 (소유자=현재 사용자, 비공개로)
+    new_deck = Deck(
+        user_id=current_user.id,
+        title=source.title,
+        description=source.description,
+        lang_term=source.lang_term,
+        lang_def=source.lang_def,
+        kind=source.kind,
+        is_public=False,
+    )
+    db.add(new_deck)
+    db.flush()  # new_deck.id 확보
+
+    # 2) 원본 카드 전부 복사 (position 유지)
+    source_cards = (
+        db.query(Card)
+        .filter(Card.deck_id == source.id)
+        .order_by(Card.position.asc(), Card.id.asc())
+        .all()
+    )
+    new_cards = [
+        Card(
+            deck_id=new_deck.id,
+            term=c.term,
+            reading=c.reading,
+            definition=c.definition,
+            example=c.example,
+            position=c.position,
+        )
+        for c in source_cards
+    ]
+    db.add_all(new_cards)
+    db.commit()
+    db.refresh(new_deck)
+    return _deck_to_response(new_deck, len(new_cards))
+
+
 # ----------------------------- 카드 -----------------------------
 
 @router.get("/decks/{deck_id}/cards", response_model=list[CardResponse])
@@ -163,8 +292,8 @@ def list_cards(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[Card]:
-    """덱의 카드 목록 (position, id 순)."""
-    _get_owned_deck(deck_id, current_user, db)
+    """덱의 카드 목록 (position, id 순). 소유자 OR 공개 덱이면 200, 그 외 404."""
+    _get_readable_deck(deck_id, current_user, db)
     return (
         db.query(Card)
         .filter(Card.deck_id == deck_id)

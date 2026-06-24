@@ -47,7 +47,9 @@
     "home": "ホーム",
     "study": "学習",
     "add": "追加",
-    "profile": "プロフィール"
+    "profile": "プロフィール",
+    "stats": "統計",
+    "explore": "さがす"
   },
   "deck": {
     "myDecks": "マイ単語帳",
@@ -140,6 +142,39 @@
     "pickDeck": "単語帳を選ぶ",
     "emptyTitle": "学習できる単語帳がありません"
   },
+  "call": {
+    "kicker": "AI通話",
+    "entryTitle": "AIと電話で練習",
+    "entrySubtitle": "音声通話で覚えた単語を使ってみよう",
+    "entryActive": "通話する単語帳を選んでね",
+    "pickDeck": "通話で練習する単語帳",
+    "title": "AIと電話する",
+    "subtitle": "音声で会話しながら覚えた単語を練習しよう。",
+    "start": "電話をかける",
+    "micPermission": "マイクの許可が必要です",
+    "connecting": "接続中…",
+    "inCall": "通話中",
+    "talking": "AIが話しています…",
+    "targetWords": "今日の単語",
+    "mute": "ミュート",
+    "unmute": "ミュート解除",
+    "end": "通話終了",
+    "retry": "再試行",
+    "relogin": "再ログイン",
+    "again": "もう一度かける",
+    "toStudy": "学習へ",
+    "endedTitle": "通話が終わりました",
+    "endedSubtitle": "よくできました！また練習しよう。",
+    "errTitle": "通話を開始できません",
+    "errMicDenied": "マイクの許可が拒否されました。ブラウザの設定でマイクを許可してください。",
+    "errMicUnavailable": "マイクが見つかりません。デバイスを確認してください。",
+    "errAuth": "ログインの有効期限が切れました。再度ログインしてください。",
+    "errDeckForbidden": "この単語帳にアクセスできません。",
+    "errDeckNotFound": "単語帳が見つかりません。",
+    "errServer": "サーバーで問題が発生しました。しばらくして再試行してください。",
+    "errConnection": "接続に失敗しました。ネットワークを確認して再試行してください。",
+    "errUnknown": "問題が発生しました。再試行してください。"
+  },
   "profile": {
     "statDecks": "単語帳",
     "statCards": "カード"
@@ -182,6 +217,15 @@
     "commitError": "保存に失敗しました。もう一度お試しください。",
     "committed": "カードを{{count}}枚取り込みました！"
   },
+  "tts": {
+    "play": "発音を聞く"
+  },
+  "theme": {
+    "label": "テーマ",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム"
+  },
   "common": {
     "loading": "読み込み中…",
     "language": "言語",
@@ -192,5 +236,66 @@
     "edit": "編集",
     "delete": "削除",
     "close": "閉じる"
+  },
+  "stats": {
+    "title": "学習統計",
+    "subtitle": "キウイがどれだけ熟したか見てみよう",
+    "myStats": "マイ統計",
+    "myStatsHint": "進捗とデッキの習熟度を見る",
+    "accuracy": "正答率",
+    "overallAccuracy": "全体の正答率",
+    "streak": "連続学習",
+    "today": "今日の学習",
+    "due": "復習",
+    "daysUnit": "日",
+    "overall": "全体状況",
+    "byDeck": "デッキ別習熟度",
+    "studied": "学習済み",
+    "mastered": "マスター",
+    "notStudied": "未学習",
+    "deckCardSummary": "デッキ {{decks}} · カード {{cards}}",
+    "ofCards": "/ {{count}}枚",
+    "avgBoxLabel": "平均習熟度 {{value}} / 5",
+    "startStudy": "学習を始める",
+    "emptyTitle": "まだ学習記録がありません",
+    "emptyHint": "カードを学習すると統計がここに貯まります",
+    "loadError": "統計を読み込めませんでした"
+  },
+  "explore": {
+    "title": "さがす",
+    "subtitle": "ほかの学習者が公開した単語帳を見てみましょう。",
+    "homeEntryHint": "公開単語帳を見る",
+    "detail": "公開単語帳",
+    "searchPlaceholder": "単語帳のタイトルを検索",
+    "loadMore": "もっと見る",
+    "loadError": "公開単語帳を読み込めませんでした。",
+    "emptyTitle": "まだ公開単語帳がありません",
+    "emptyHint": "最初の単語帳を公開してみんなと共有しましょう。",
+    "noResults": "結果がありません",
+    "noResultsHint": "「{{q}}」に一致する単語帳が見つかりません。",
+    "clearSearch": "検索をクリア",
+    "previewTitle": "カードプレビュー",
+    "noCards": "この単語帳にはカードがありません。",
+    "copyToMyDecks": "自分の単語帳にコピー",
+    "copyHint": "カードをそのままコピーした単語帳が新しく作られます。",
+    "copiedToast": "自分の単語帳にコピーしました！",
+    "copyError": "コピーできませんでした。もう一度お試しください。",
+    "notFound": "単語帳が見つかりません",
+    "notFoundHint": "非公開になったか削除された可能性があります。",
+    "backToGallery": "さがすに戻る"
+  },
+  "share": {
+    "publicTitle": "公開中",
+    "publicHint": "だれでもさがすで見つけてコピーできます。",
+    "privateTitle": "非公開",
+    "privateHint": "自分だけ見られます。公開すると共有リンクが作られます。",
+    "toggleLabel": "公開を切り替え",
+    "madePublic": "単語帳を公開しました！",
+    "madePrivate": "単語帳を非公開にしました。",
+    "toggleError": "公開設定を変更できませんでした。",
+    "copyLink": "リンクをコピー",
+    "copied": "コピー済み",
+    "linkCopied": "共有リンクをコピーしました！",
+    "linkCopyError": "リンクをコピーできませんでした。"
   }
 }

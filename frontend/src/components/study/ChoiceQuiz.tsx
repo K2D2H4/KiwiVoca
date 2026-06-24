@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
 import ScoreChip from "./ScoreChip";
+import { SpeakButton } from "../ui";
 import { shuffle } from "../../lib/grading";
 import {
   spring,
@@ -20,6 +21,7 @@ interface ChoiceQuizProps {
   onClose: () => void;
   onAnswer: (cardId: string | number, isCorrect: boolean) => void;
   onComplete: (outcomes: StudyOutcome[]) => void;
+  langTerm?: string; // term 발음 언어(덱 lang_term)
 }
 
 interface Question {
@@ -45,6 +47,7 @@ export default function ChoiceQuiz({
   onClose,
   onAnswer,
   onComplete,
+  langTerm,
 }: ChoiceQuizProps) {
   const { t } = useTranslation();
   const questions = useMemo(() => buildQuestions(cards), [cards]);
@@ -100,7 +103,7 @@ export default function ChoiceQuiz({
             className="flex flex-1 flex-col"
           >
             {/* 문제 */}
-            <div className="flex min-h-[32dvh] flex-col items-center justify-center rounded-3xl bg-white p-7 text-center shadow-soft">
+            <div className="flex min-h-[32dvh] flex-col items-center justify-center rounded-3xl bg-surface p-7 text-center shadow-soft">
               <span className="text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
                 {t("study.chooseMeaning")}
               </span>
@@ -112,6 +115,15 @@ export default function ChoiceQuiz({
                   {q.card.reading}
                 </span>
               )}
+              {/* term 발음 */}
+              <span className="mt-3">
+                <SpeakButton
+                  text={q.card.term}
+                  lang={langTerm}
+                  variant="soft"
+                  size="sm"
+                />
+              </span>
             </div>
 
             {/* 보기 — stagger 등장 */}
@@ -152,10 +164,10 @@ function OptionButton({
   revealed: boolean;
   onPick: () => void;
 }) {
-  let style = "bg-white text-seed shadow-soft";
+  let style = "bg-surface text-seed shadow-soft";
   if (revealed && isAnswer) style = "bg-kiwi text-white shadow-pop";
   else if (revealed && isPicked && !isAnswer) style = "bg-pop text-white shadow-pop";
-  else if (revealed) style = "bg-white text-seed/30 shadow-soft";
+  else if (revealed) style = "bg-surface text-seed/30 shadow-soft";
 
   const wrongPick = revealed && isPicked && !isAnswer;
 

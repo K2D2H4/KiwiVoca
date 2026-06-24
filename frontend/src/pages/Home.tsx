@@ -2,7 +2,7 @@
 // 빈 상태는 KiwiBuddy + "첫 단어장 만들기" CTA, 로딩은 Skeleton 카드.
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Camera, Plus } from "lucide-react";
+import { Camera, Compass, Plus } from "lucide-react";
 import KiwiMark from "../components/KiwiMark";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import DeckCard from "../components/deck/DeckCard";
@@ -40,6 +40,25 @@ export default function Home() {
             {t("deck.listSubtitle")}
           </p>
         </div>
+
+        {/* 모바일 전용 탐색 진입 (데스크탑은 사이드바에 탐색 항목 존재) */}
+        <button
+          type="button"
+          onClick={() => navigate("/explore")}
+          className="mt-4 flex w-full items-center gap-2.5 rounded-2xl bg-white/15 px-4 py-3 text-left text-white backdrop-blur-sm transition active:scale-[0.98] hover:bg-white/20 md:hidden"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20">
+            <Compass size={18} strokeWidth={2.4} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-body-sm font-bold">
+              {t("explore.title")}
+            </span>
+            <span className="block truncate text-caption text-white/80">
+              {t("explore.homeEntryHint")}
+            </span>
+          </span>
+        </button>
       </header>
 
       <div className="px-5 pt-5">

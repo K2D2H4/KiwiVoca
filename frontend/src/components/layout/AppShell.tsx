@@ -10,25 +10,37 @@ import {
   Plus,
   User,
   Languages,
+  BarChart3,
+  Compass,
   type LucideIcon,
 } from "lucide-react";
 import KiwiMark from "../KiwiMark";
 import LanguageSwitcher from "../LanguageSwitcher";
+import ThemeToggle from "../ThemeToggle";
 import Avatar from "../ui/Avatar";
 import Sheet from "../ui/Sheet";
 import { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 
 interface TabDef {
-  key: "home" | "study" | "profile";
+  key: "home" | "study" | "explore" | "stats" | "profile";
   to: string;
   icon: LucideIcon;
 }
 
-// FAB 제외한 일반 탭 (모바일 탭바 + 사이드바 공용)
+// 모바일 탭바 탭 (중앙 FAB 좌우 4칸). stats 는 데스크탑 사이드바 전용.
 const TABS: TabDef[] = [
   { key: "home", to: "/", icon: Home },
   { key: "study", to: "/study", icon: Layers },
+  { key: "profile", to: "/profile", icon: User },
+];
+
+// 데스크탑 사이드바 네비 (모바일보다 한 칸 더 — 통계 포함)
+const SIDEBAR_TABS: TabDef[] = [
+  { key: "home", to: "/", icon: Home },
+  { key: "study", to: "/study", icon: Layers },
+  { key: "explore", to: "/explore", icon: Compass },
+  { key: "stats", to: "/stats", icon: BarChart3 },
   { key: "profile", to: "/profile", icon: User },
 ];
 
@@ -59,7 +71,7 @@ export default function AppShell() {
 
         <nav className="flex flex-1 flex-col gap-1">
           {/* 일반 탭 */}
-          {TABS.map((tab) => {
+          {SIDEBAR_TABS.map((tab) => {
             const Icon = tab.icon;
             return (
               <NavLink
@@ -99,6 +111,9 @@ export default function AppShell() {
         </nav>
 
         <div className="mt-4 border-t border-border pt-4">
+          <div className="mb-3 flex justify-center px-1">
+            <ThemeToggle variant="compact" />
+          </div>
           <div className="mb-3 px-1">
             <LanguageSwitcher />
           </div>

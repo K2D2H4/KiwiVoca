@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
 import ScoreChip from "./ScoreChip";
+import { SpeakButton } from "../ui";
 import { isAnswerCorrect, shuffle } from "../../lib/grading";
 import {
   spring,
@@ -18,6 +19,7 @@ interface TypingQuizProps {
   onClose: () => void;
   onAnswer: (cardId: string | number, isCorrect: boolean) => void;
   onComplete: (outcomes: StudyOutcome[]) => void;
+  langTerm?: string; // term 발음 언어(덱 lang_term)
 }
 
 type Phase = "input" | "correct" | "wrong";
@@ -27,6 +29,7 @@ export default function TypingQuiz({
   onClose,
   onAnswer,
   onComplete,
+  langTerm,
 }: TypingQuizProps) {
   const { t } = useTranslation();
   const queue = useMemo(() => shuffle(cards), [cards]);
@@ -86,7 +89,7 @@ export default function TypingQuiz({
             animate="center"
             exit="exit"
             transition={spring.smooth}
-            className="mt-2 flex min-h-[26dvh] flex-col items-center justify-center rounded-3xl bg-white p-7 text-center shadow-soft"
+            className="mt-2 flex min-h-[26dvh] flex-col items-center justify-center rounded-3xl bg-surface p-7 text-center shadow-soft"
           >
             <span className="text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
               {t("study.typeTerm")}
@@ -120,7 +123,7 @@ export default function TypingQuiz({
               autoCorrect="off"
               spellCheck={false}
               placeholder={t("study.typeHere")}
-              className={`min-h-[56px] w-full rounded-2xl border-2 bg-white px-4 text-lg font-extrabold text-seed shadow-soft transition-[border-color,box-shadow] duration-200 placeholder:text-seed/30 focus:outline-none ${
+              className={`min-h-[56px] w-full rounded-2xl border-2 bg-surface px-4 text-lg font-extrabold text-seed shadow-soft transition-[border-color,box-shadow] duration-200 placeholder:text-seed/30 focus:outline-none ${
                 phase === "correct"
                   ? "border-kiwi shadow-pop"
                   : phase === "wrong"
@@ -163,14 +166,18 @@ export default function TypingQuiz({
                 className="mt-3 overflow-hidden rounded-2xl bg-pop/12 px-4 py-3"
               >
                 <p className="text-xs font-bold text-pop">{t("study.wrongMsg")}</p>
-                <motion.p
+                <motion.div
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ ...spring.snappy, delay: 0.08 }}
-                  className="mt-1 text-base font-black text-seed"
+                  className="mt-1 flex items-center gap-1.5"
                 >
-                  {card.term}
-                </motion.p>
+                  <span className="text-base font-black text-seed">
+                    {card.term}
+                  </span>
+                  {/* 정답 노출 시 발음 */}
+                  <SpeakButton text={card.term} lang={langTerm} variant="ghost" size="sm" />
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>

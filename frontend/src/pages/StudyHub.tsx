@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Layers, ChevronRight, GraduationCap } from "lucide-react";
+import { Layers, ChevronRight, GraduationCap, Phone } from "lucide-react";
 import { Card, Badge, Skeleton, EmptyState, Button } from "../components/ui";
 import ModeSheet from "../components/study/ModeSheet";
 import { useDecks } from "../hooks/useDecks";
@@ -16,8 +16,18 @@ export default function StudyHub() {
   const navigate = useNavigate();
   const { data: decks, isLoading } = useDecks();
   const [picked, setPicked] = useState<Deck | null>(null);
+  // 전화 연습 모드: 켜면 덱 선택 시 모드 시트 대신 /call/:id 로 이동
+  const [callMode, setCallMode] = useState(false);
 
   const hasDecks = decks && decks.length > 0;
+
+  const handlePick = (deck: Deck) => {
+    if (callMode) {
+      navigate(`/call/${deck.id}`);
+    } else {
+      setPicked(deck);
+    }
+  };
 
   return (
     <div className="bg-orchard min-h-[100dvh]">
@@ -46,8 +56,40 @@ export default function StudyHub() {
           </div>
         ) : hasDecks ? (
           <>
+            {/* AI 전화 연습 진입 — 토글 배너 */}
+            <button
+              type="button"
+              onClick={() => setCallMode((v) => !v)}
+              aria-pressed={callMode}
+              className={`mb-4 flex w-full items-center gap-3.5 rounded-3xl p-4 text-left transition-all ${
+                callMode
+                  ? "bg-kiwi text-white shadow-kiwi-glow"
+                  : "bg-surface text-seed shadow-sm ring-1 ring-border hover:ring-kiwi-300"
+              }`}
+            >
+              <span
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                  callMode ? "bg-white/20 text-white" : "bg-pop-soft text-pop-dark"
+                }`}
+              >
+                <Phone size={22} strokeWidth={2.2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-body font-bold">
+                  {t("call.entryTitle")}
+                </span>
+                <span
+                  className={`mt-0.5 block text-body-sm ${
+                    callMode ? "text-white/80" : "text-seed/60"
+                  }`}
+                >
+                  {callMode ? t("call.entryActive") : t("call.entrySubtitle")}
+                </span>
+              </span>
+            </button>
+
             <p className="mb-3 px-1 text-caption font-bold uppercase tracking-wide text-seed/45">
-              {t("study.pickDeck")}
+              {callMode ? t("call.pickDeck") : t("study.pickDeck")}
             </p>
             <motion.ul
               variants={staggerParent}
@@ -62,14 +104,16 @@ export default function StudyHub() {
                     tabIndex={0}
                     interactive
                     padding="sm"
-                    onClick={() => setPicked(deck)}
+                    onClick={() => handlePick(deck)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setPicked(deck);
+                        handlePick(deck);
                       }
                     }}
-                    className="flex items-center gap-3.5"
+                    className={`flex items-center gap-3.5${
+                      callMode ? " ring-2 ring-kiwi-300" : ""
+                    }`}
                   >
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-kiwi-100 text-kiwi-700">
                       <Layers size={22} strokeWidth={2.2} />
@@ -87,12 +131,21 @@ export default function StudyHub() {
                         </Badge>
                       </span>
                     </span>
-                    <ChevronRight
-                      size={20}
-                      strokeWidth={2.4}
-                      className="shrink-0 text-ink-300"
-                      aria-hidden="true"
-                    />
+                    {callMode ? (
+                      <Phone
+                        size={20}
+                        strokeWidth={2.4}
+                        className="shrink-0 text-kiwi-600"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ChevronRight
+                        size={20}
+                        strokeWidth={2.4}
+                        className="shrink-0 text-ink-300"
+                        aria-hidden="true"
+                      />
+                    )}
                   </Card>
                 </motion.li>
               ))}

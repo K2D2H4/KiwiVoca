@@ -10,6 +10,7 @@ import {
   type PanInfo,
 } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
+import { SpeakButton } from "../ui";
 import { spring, tap } from "../../lib/motion";
 import type { StudyCard, StudyOutcome } from "../../types/study";
 
@@ -18,6 +19,7 @@ interface FlashcardsProps {
   onClose: () => void;
   onAnswer: (cardId: string | number, isCorrect: boolean) => void;
   onComplete: (outcomes: StudyOutcome[]) => void;
+  langTerm?: string; // term 발음 언어(덱 lang_term)
 }
 
 const SWIPE_OFFSET = 110; // 거리 임계값
@@ -28,6 +30,7 @@ export default function Flashcards({
   onClose,
   onAnswer,
   onComplete,
+  langTerm,
 }: FlashcardsProps) {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
@@ -109,7 +112,7 @@ export default function Flashcards({
               <motion.div
                 key={`peek-${peek.id}`}
                 aria-hidden
-                className="absolute h-[55dvh] w-full rounded-3xl bg-white shadow-soft"
+                className="absolute h-[55dvh] w-full rounded-3xl bg-surface shadow-soft"
                 initial={false}
                 animate={{
                   scale: 1 - depth * 0.05,
@@ -135,7 +138,9 @@ export default function Flashcards({
               dragSnapToOrigin
               dragElastic={0.55}
               onDragEnd={onDragEnd}
-              initial={{ scale: 0.94, y: 14, opacity: 0 }}
+              // x:0 명시 — 던진 카드의 x(±560)가 공유 MotionValue에 남아
+              // 다음 카드가 화면 밖에 고정되는 버그 방지(매 카드 mount 시 중앙 리셋)
+              initial={{ x: 0, scale: 0.94, y: 14, opacity: 0 }}
               animate={
                 flyAway !== 0
                   ? {
@@ -144,7 +149,7 @@ export default function Flashcards({
                       opacity: 0,
                       transition: { duration: 0.32, ease: [0.4, 0, 0.6, 1] },
                     }
-                  : { scale: 1, y: 0, opacity: 1, transition: spring.smooth }
+                  : { x: 0, scale: 1, y: 0, opacity: 1, transition: spring.smooth }
               }
               onAnimationStart={() => {
                 // 새 카드 enter(flyAway===0) 시작 시 가드 재무장
@@ -172,11 +177,18 @@ export default function Flashcards({
                 {t("study.didntKnow")}
               </motion.span>
 
-              {/* 3D flip 컨테이너 */}
-              <motion.button
-                type="button"
+              {/* 3D flip 컨테이너 — button 대신 div(내부 SpeakButton 중첩 버튼 방지) */}
+              <motion.div
+                role="button"
+                tabIndex={0}
                 onClick={() => setFlipped((p) => !p)}
-                className="relative block w-full text-left"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setFlipped((p) => !p);
+                  }
+                }}
+                className="relative block w-full cursor-pointer text-left"
                 style={{ transformStyle: "preserve-3d" }}
                 animate={{ rotateY: flipped ? 180 : 0 }}
                 transition={
@@ -188,9 +200,18 @@ export default function Flashcards({
               >
                 {/* 앞면 — term */}
                 <span
-                  className="flex h-[55dvh] w-full flex-col items-center justify-center gap-3 rounded-3xl bg-white p-7 text-center shadow-soft"
+                  className="relative flex h-[55dvh] w-full flex-col items-center justify-center gap-3 rounded-3xl bg-surface p-7 text-center shadow-soft"
                   style={{ backfaceVisibility: "hidden" }}
                 >
+                  {/* term 발음 — 카드 flip/swipe와 분리(SpeakButton 내부 stopPropagation) */}
+                  <span className="absolute right-3 top-3">
+                    <SpeakButton
+                      text={card.term}
+                      lang={langTerm}
+                      variant="soft"
+                      size="sm"
+                    />
+                  </span>
                   <span className="text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
                     {t("study.frontLabel")}
                   </span>
@@ -228,7 +249,7 @@ export default function Flashcards({
                     </span>
                   )}
                 </span>
-              </motion.button>
+              </motion.div>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -239,7 +260,7 @@ export default function Flashcards({
             type="button"
             onClick={() => triggerButton(false)}
             whileTap={tap}
-            className="flex min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-white text-base font-extrabold text-pop shadow-soft"
+            className="flex min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-surface text-base font-extrabold text-pop shadow-soft"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />

@@ -2,6 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 테마 토큰 — CSS 변수 (RGB 채널 "R G B").
+ * tailwind 토큰이 rgb(var(--x) / <alpha>)로 매핑되므로 /70 등 opacity도 동작.
+ * :root = 라이트("Orchard Pop"), .dark = 다크("Orchard at Dusk").
+ */
+:root {
+  /* 서피스/배경/보더 */
+  --surface: 255 255 255; /* #FFFFFF */
+  --bg: 251 248 240; /* #FBF8F0 */
+  --cream: 251 248 240; /* #FBF8F0 */
+  --border: 233 229 218; /* #E9E5DA */
+  --seed: 46 58 36; /* #2E3A24 진한 텍스트 */
+  /* 중립 그레이 스케일 */
+  --ink-50: 246 245 241; /* #F6F5F1 */
+  --ink-100: 236 234 227; /* #ECEAE3 */
+  --ink-200: 217 214 203; /* #D9D6CB */
+  --ink-300: 187 183 169; /* #BBB7A9 */
+  --ink-400: 146 141 124; /* #928D7C */
+  --ink-500: 111 106 91; /* #6F6A5B */
+  --ink-600: 83 79 67; /* #534F43 */
+  --ink-700: 61 58 49; /* #3D3A31 */
+  --ink-800: 46 58 36; /* #2E3A24 = seed */
+  --ink-900: 34 43 26; /* #222B1A */
+  /* 시맨틱 */
+  --success: 95 166 60; /* #5FA63C */
+  --success-soft: 224 244 212; /* #E0F4D4 */
+  --warning: 232 163 61; /* #E8A33D */
+  --warning-soft: 251 238 210; /* #FBEED2 */
+  --danger: 232 96 76; /* #E8604C */
+  --danger-soft: 251 224 219; /* #FBE0DB */
+  --info: 79 168 201; /* #4FA8C9 */
+  --info-soft: 219 238 245; /* #DBEEF5 */
+  /* 키위 soft 칩 (surface 위) + 칩 텍스트 */
+  --kiwi-50: 241 250 236; /* #F1FAEC */
+  --kiwi-100: 224 244 212; /* #E0F4D4 */
+  --kiwi-700: 76 135 48; /* #4C8730 */
+  /* pop soft */
+  --pop-soft: 255 227 221; /* #FFE3DD */
+  /* 데코 그라데이션/텍스처용 (orchard·seed-dots) */
+  --dot-rgb: 46 58 36;
+  --orchard-1: 168 224 143; /* 키위 라이트 */
+  --orchard-2: 255 138 122; /* pop */
+  color-scheme: light;
+}
+
+.dark {
+  /* "Orchard at Dusk" — 약간 초록빛 도는 딥 차콜, 발광 키위 그린 */
+  --surface: 30 40 26; /* #1E281A 라이즈드 포레스트 */
+  --bg: 20 27 18; /* #141B12 딥 페이지 */
+  --cream: 20 27 18; /* #141B12 (cream→다크 페이지) */
+  --border: 51 64 44; /* #33402C */
+  --seed: 233 240 224; /* #E9F0E0 라이트 텍스트(반전) */
+  /* 중립 스케일 반전: 50(가장 밝음)→가장 어두움, 800/900(텍스트)→밝음 */
+  --ink-50: 38 49 33; /* 어두운 서피스 톤 */
+  --ink-100: 45 57 39;
+  --ink-200: 58 72 50; /* 핸들/디바이더 */
+  --ink-300: 96 110 84;
+  --ink-400: 130 144 118;
+  --ink-500: 158 170 146;
+  --ink-600: 186 196 176;
+  --ink-700: 206 214 197;
+  --ink-800: 226 233 218; /* 텍스트 */
+  --ink-900: 240 245 232;
+  /* 시맨틱 — DEFAULT는 약간 밝게, soft는 딥 톤 */
+  --success: 122 204 98; /* #7ACC62 */
+  --success-soft: 35 56 28;
+  --warning: 240 184 92;
+  --warning-soft: 58 47 24;
+  --danger: 240 122 104;
+  --danger-soft: 58 33 30;
+  --info: 109 196 224;
+  --info-soft: 26 47 56;
+  /* 키위 soft 칩 — 딥 그린 틴트 + 밝은 칩 텍스트 */
+  --kiwi-50: 35 49 28; /* #23311C */
+  --kiwi-100: 42 59 34; /* #2A3B22 */
+  --kiwi-700: 168 224 143; /* #A8E08F 밝은 그린 */
+  /* pop soft → 딥 코랄 */
+  --pop-soft: 64 38 34;
+  /* 데코 — 다크에선 옅게 */
+  --dot-rgb: 255 255 255;
+  --orchard-1: 122 204 98;
+  --orchard-2: 255 138 122;
+  color-scheme: dark;
+}
+
 @layer base {
   html,
   body,
@@ -28,7 +113,7 @@
 }
 
 @layer utilities {
-  /* 키위 씨앗 점박이 텍스처 — 그린 영역에 깊이감 부여 */
+  /* 키위 씨앗 점박이 텍스처 — 그린 헤더 영역에 깊이감 (그린 위라 항상 어두운 점) */
   .seed-dots {
     background-image: radial-gradient(
       rgba(46, 58, 36, 0.12) 1.5px,
@@ -38,27 +123,40 @@
     background-position: -4px -4px;
   }
 
-  /* 부드러운 크림 그라데이션 배경 (페이지 분위기) */
+  /* 부드러운 그라데이션 배경 (페이지 분위기) — 라이트/다크 변수 반응 */
   .bg-orchard {
     background-image: radial-gradient(
         120% 80% at 100% 0%,
-        rgba(168, 224, 143, 0.35) 0%,
+        rgb(var(--orchard-1) / 0.35) 0%,
         transparent 55%
       ),
       radial-gradient(
         90% 70% at 0% 100%,
-        rgba(255, 138, 122, 0.12) 0%,
+        rgb(var(--orchard-2) / 0.12) 0%,
+        transparent 50%
+      );
+  }
+  /* 다크에선 그린 글로우를 더 절제 */
+  .dark .bg-orchard {
+    background-image: radial-gradient(
+        120% 80% at 100% 0%,
+        rgb(var(--orchard-1) / 0.14) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        90% 70% at 0% 100%,
+        rgb(var(--orchard-2) / 0.08) 0%,
         transparent 50%
       );
   }
 
-  /* 스켈레톤 시머 */
+  /* 스켈레톤 시머 — dot-rgb 변수로 라이트/다크 대응 */
   .skeleton-shimmer {
     background-image: linear-gradient(
       100deg,
-      rgba(46, 58, 36, 0.06) 30%,
-      rgba(46, 58, 36, 0.12) 50%,
-      rgba(46, 58, 36, 0.06) 70%
+      rgb(var(--dot-rgb) / 0.06) 30%,
+      rgb(var(--dot-rgb) / 0.12) 50%,
+      rgb(var(--dot-rgb) / 0.06) 70%
     );
     background-size: 200% 100%;
   }

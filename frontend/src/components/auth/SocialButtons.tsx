@@ -40,7 +40,7 @@ export default function SocialButtons() {
           type="button"
           disabled
           aria-disabled="true"
-          className="relative flex min-h-[50px] w-full cursor-not-allowed items-center gap-3 rounded-2xl border-2 border-border bg-white/60 px-4 text-body-sm font-bold text-seed/50"
+          className="relative flex min-h-[50px] w-full cursor-not-allowed items-center gap-3 rounded-2xl border-2 border-border bg-surface/60 px-4 text-body-sm font-bold text-seed/50"
         >
           <span className="shrink-0 opacity-60">{p.glyph}</span>
           <span className="truncate">{p.label}</span>

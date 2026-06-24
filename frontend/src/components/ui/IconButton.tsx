@@ -23,7 +23,7 @@ interface IconButtonProps
 const VARIANTS: Record<Variant, string> = {
   ghost: "text-seed/70 hover:bg-ink-100/70",
   solid: "bg-kiwi text-white shadow-kiwi-glow hover:bg-kiwi-600",
-  soft: "bg-white text-seed ring-1 ring-border hover:bg-kiwi-50",
+  soft: "bg-surface text-seed ring-1 ring-border hover:bg-kiwi-50",
 };
 
 const SIZES: Record<Size, string> = {

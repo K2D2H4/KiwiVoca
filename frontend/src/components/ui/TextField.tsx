@@ -49,7 +49,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             className={[
               "w-full rounded-2xl border-2 bg-cream/70 py-3.5 text-base text-seed",
               "placeholder:text-seed/30 shadow-inner-soft transition",
-              "focus:bg-white focus:outline-none",
+              "focus:bg-surface focus:outline-none",
               leftIcon ? "pl-11" : "pl-4",
               rightSlot ? "pr-12" : "pr-4",
               invalid

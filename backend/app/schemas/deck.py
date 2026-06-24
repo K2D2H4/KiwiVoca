@@ -43,3 +43,17 @@ class DeckResponse(BaseModel):
     card_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+class PublicDeckResponse(BaseModel):
+    """공개 덱 목록 응답. 내부 user_id 등 민감정보는 노출하지 않고 owner_name 만 제공."""
+
+    id: int
+    title: str
+    description: str | None = None
+    lang_term: str
+    lang_def: str
+    kind: str
+    card_count: int = 0
+    owner_name: str  # 소유자 display_name
+    created_at: datetime

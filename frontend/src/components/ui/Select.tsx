@@ -38,7 +38,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             className={[
               "w-full appearance-none rounded-2xl border-2 bg-cream/70 py-3.5 pl-4 pr-11",
               "text-base text-seed shadow-inner-soft transition",
-              "focus:bg-white focus:outline-none",
+              "focus:bg-surface focus:outline-none",
               invalid
                 ? "border-danger/60 focus:border-danger"
                 : "border-transparent focus:border-kiwi",

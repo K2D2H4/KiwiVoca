@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     # Gemini
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.5-flash"
+    # 발음 TTS — 단어/표현 음성 합성 (텍스트 추출용 GEMINI_MODEL 과 별개)
+    GEMINI_TTS_MODEL: str = "gemini-2.5-flash-preview-tts"
+    GEMINI_TTS_VOICE: str = "Kore"
+    # 합성 결과 파일 캐시 디렉터리 (docker named volume 마운트 지점)
+    TTS_CACHE_DIR: str = "/app/tts_cache"
 
     # OAuth: Google
     GOOGLE_CLIENT_ID: str = ""

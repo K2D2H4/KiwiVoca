@@ -1,58 +1,68 @@
 import type { Config } from "tailwindcss";
 
-// 키위보카 디자인 시스템 토큰 — "Orchard Pop"
+// 키위보카 디자인 시스템 토큰 — "Orchard Pop" (라이트) / "Orchard at Dusk" (다크)
 // 키위 그린 + 크림 + 씨앗 대비를 살린 따뜻하고 트렌디한 톤.
 // 하드코딩 hex 금지: 항상 토큰명을 사용한다.
+//
+// [다크모드 구조] 의미 토큰(surface/bg/cream/seed/border/ink/시맨틱)은
+// CSS 변수(rgb 채널)로 매핑 → :root(라이트)/.dark(다크)에서 자동 전환된다.
+// 브랜드 키위 그린 스케일(kiwi-*)·pop·bark 은 정체성 유지를 위해 고정 hex.
+// rgb(var(--x) / <alpha-value>) 형태 → /70, /40 등 opacity 수정자도 그대로 동작.
+const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         // --- 브랜드 메인: 키위 그린 스케일 (50~900) ---
         kiwi: {
-          50: "#F1FAEC",
-          100: "#E0F4D4",
+          // 50/100/700 은 "soft 칩"으로 surface 위에 쓰여 다크 전환 필요 → CSS 변수
+          50: v("--kiwi-50"),
+          100: v("--kiwi-100"),
           200: "#C6E9AE",
           300: "#A8E08F", // 기존 light
           400: "#84CF6A",
-          DEFAULT: "#6BBF59", // 메인 CTA
+          DEFAULT: "#6BBF59", // 메인 CTA (브랜드 고정)
           500: "#6BBF59",
           600: "#5FA63C", // hover/active (기존 dark)
           dark: "#5FA63C",
           light: "#A8E08F",
-          700: "#4C8730",
+          700: v("--kiwi-700"), // 칩 텍스트 — 다크에서 밝은 그린
           800: "#3C6927",
           900: "#2F5220",
         },
-        // --- 중립 그레이 스케일 (씨앗 톤이 섞인 따뜻한 그레이) ---
+        // --- 중립 그레이 스케일 (씨앗 톤 그레이) — CSS 변수로 라이트/다크 전환 ---
         ink: {
-          50: "#F6F5F1",
-          100: "#ECEAE3",
-          200: "#D9D6CB",
-          300: "#BBB7A9",
-          400: "#928D7C",
-          500: "#6F6A5B",
-          600: "#534F43",
-          700: "#3D3A31",
-          800: "#2E3A24", // = seed (진한 텍스트)
-          900: "#222B1A",
+          50: v("--ink-50"),
+          100: v("--ink-100"),
+          200: v("--ink-200"),
+          300: v("--ink-300"),
+          400: v("--ink-400"),
+          500: v("--ink-500"),
+          600: v("--ink-600"),
+          700: v("--ink-700"),
+          800: v("--ink-800"),
+          900: v("--ink-900"),
         },
-        // --- 시맨틱 ---
-        success: { DEFAULT: "#5FA63C", soft: "#E0F4D4" },
-        warning: { DEFAULT: "#E8A33D", soft: "#FBEED2" },
-        danger: { DEFAULT: "#E8604C", soft: "#FBE0DB" },
-        info: { DEFAULT: "#4FA8C9", soft: "#DBEEF5" },
+        // --- 시맨틱 (soft 배경은 다크에서 딥 톤으로 전환) ---
+        success: { DEFAULT: v("--success"), soft: v("--success-soft") },
+        warning: { DEFAULT: v("--warning"), soft: v("--warning-soft") },
+        danger: { DEFAULT: v("--danger"), soft: v("--danger-soft") },
+        info: { DEFAULT: v("--info"), soft: v("--info-soft") },
         // --- 서피스/배경/보더 ---
-        surface: "#FFFFFF",
-        bg: "#FBF8F0", // = cream
-        border: "#E9E5DA",
-        // --- 기존 토큰 유지 ---
-        cream: "#FBF8F0",
-        seed: "#2E3A24",
+        surface: v("--surface"),
+        bg: v("--bg"),
+        border: v("--border"),
+        // --- 의미 토큰 (라이트/다크 전환) ---
+        cream: v("--cream"),
+        seed: v("--seed"),
+        // --- 브랜드 고정 hex (정체성 유지) ---
         bark: "#A67C52",
         pop: {
           DEFAULT: "#FF8A7A", // 코랄 포인트
-          soft: "#FFE3DD",
+          soft: v("--pop-soft"),
           dark: "#F0654F",
         },
       },

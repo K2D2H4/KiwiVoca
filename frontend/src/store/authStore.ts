@@ -1,7 +1,11 @@
 // 인증 전역 상태 — zustand + localStorage 영속
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from "../lib/api";
+import {
+  ACCESS_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  AUTH_LOGOUT_EVENT,
+} from "../lib/api";
 import type { TokenResponse, User } from "../types/auth";
 
 interface AuthState {
@@ -58,3 +62,10 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// api.ts가 refresh에 최종 실패하면(세션 만료) 전역 로그아웃
+if (typeof window !== "undefined") {
+  window.addEventListener(AUTH_LOGOUT_EVENT, () => {
+    useAuthStore.getState().logout();
+  });
+}

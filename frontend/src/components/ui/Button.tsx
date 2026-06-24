@@ -29,7 +29,7 @@ const VARIANTS: Record<Variant, string> = {
   primary:
     "bg-kiwi text-white shadow-kiwi-glow hover:bg-kiwi-600 disabled:bg-kiwi/50",
   secondary:
-    "bg-white text-seed ring-2 ring-border hover:ring-kiwi-300 hover:bg-kiwi-50 disabled:opacity-50",
+    "bg-surface text-seed ring-2 ring-border hover:ring-kiwi-300 hover:bg-kiwi-50 disabled:opacity-50",
   ghost: "bg-transparent text-seed/70 hover:bg-ink-100/70 disabled:opacity-40",
   danger: "bg-danger text-white shadow-pop hover:bg-pop-dark disabled:bg-danger/50",
 };

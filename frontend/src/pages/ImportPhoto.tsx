@@ -351,7 +351,7 @@ function UploadStep({
       <p className="text-body-sm text-seed/60">{t("import.uploadIntro")}</p>
 
       {/* 드롭존 / 썸네일 그리드 */}
-      <div className="rounded-3xl border-2 border-dashed border-bark/30 bg-white/60 p-4">
+      <div className="rounded-3xl border-2 border-dashed border-bark/30 bg-surface/60 p-4">
         {previews.length === 0 ? (
           <button
             type="button"

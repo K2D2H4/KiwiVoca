@@ -47,7 +47,9 @@
     "home": "홈",
     "study": "학습",
     "add": "추가",
-    "profile": "프로필"
+    "profile": "프로필",
+    "stats": "통계",
+    "explore": "탐색"
   },
   "deck": {
     "myDecks": "내 단어장",
@@ -140,6 +142,39 @@
     "pickDeck": "단어장 고르기",
     "emptyTitle": "학습할 단어장이 없어요"
   },
+  "call": {
+    "kicker": "AI 전화",
+    "entryTitle": "AI와 전화 연습",
+    "entrySubtitle": "음성 통화로 배운 단어를 써먹어요",
+    "entryActive": "통화할 단어장을 골라요",
+    "pickDeck": "전화 연습할 단어장",
+    "title": "AI와 전화하기",
+    "subtitle": "음성으로 대화하며 배운 단어를 연습해요.",
+    "start": "전화 걸기",
+    "micPermission": "마이크 권한이 필요해요",
+    "connecting": "연결 중…",
+    "inCall": "통화 중",
+    "talking": "AI가 말하는 중…",
+    "targetWords": "오늘의 단어",
+    "mute": "음소거",
+    "unmute": "음소거 해제",
+    "end": "통화 종료",
+    "retry": "다시 시도",
+    "relogin": "다시 로그인",
+    "again": "다시 걸기",
+    "toStudy": "학습으로",
+    "endedTitle": "통화가 끝났어요",
+    "endedSubtitle": "잘했어요! 또 연습해요.",
+    "errTitle": "통화를 시작할 수 없어요",
+    "errMicDenied": "마이크 권한이 거부됐어요. 브라우저 설정에서 마이크를 허용해 주세요.",
+    "errMicUnavailable": "마이크를 찾을 수 없어요. 장치를 확인해 주세요.",
+    "errAuth": "로그인이 만료됐어요. 다시 로그인해 주세요.",
+    "errDeckForbidden": "이 단어장에 접근할 수 없어요.",
+    "errDeckNotFound": "단어장을 찾을 수 없어요.",
+    "errServer": "서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+    "errConnection": "연결에 실패했어요. 네트워크를 확인하고 다시 시도해 주세요.",
+    "errUnknown": "알 수 없는 문제가 생겼어요. 다시 시도해 주세요."
+  },
   "profile": {
     "statDecks": "단어장",
     "statCards": "카드"
@@ -182,6 +217,15 @@
     "commitError": "저장에 실패했어요. 다시 시도해주세요.",
     "committed": "카드 {{count}}개를 가져왔어요!"
   },
+  "tts": {
+    "play": "발음 듣기"
+  },
+  "theme": {
+    "label": "테마",
+    "light": "라이트",
+    "dark": "다크",
+    "system": "시스템"
+  },
   "common": {
     "loading": "불러오는 중…",
     "language": "언어",
@@ -192,5 +236,66 @@
     "edit": "편집",
     "delete": "삭제",
     "close": "닫기"
+  },
+  "stats": {
+    "title": "학습 통계",
+    "subtitle": "키위가 얼마나 잘 익었는지 살펴봐요",
+    "myStats": "내 통계",
+    "myStatsHint": "진척과 덱별 숙련도 보기",
+    "accuracy": "정답률",
+    "overallAccuracy": "전체 정답률",
+    "streak": "연속 학습",
+    "today": "오늘 학습",
+    "due": "복습 필요",
+    "daysUnit": "일",
+    "overall": "전체 현황",
+    "byDeck": "단어장별 숙련도",
+    "studied": "학습한 카드",
+    "mastered": "마스터",
+    "notStudied": "미학습",
+    "deckCardSummary": "단어장 {{decks}} · 카드 {{cards}}",
+    "ofCards": "/ {{count}}장",
+    "avgBoxLabel": "평균 숙련도 {{value}} / 5",
+    "startStudy": "학습 시작하기",
+    "emptyTitle": "아직 학습 기록이 없어요",
+    "emptyHint": "카드를 학습하면 여기에 통계가 쌓여요",
+    "loadError": "통계를 불러오지 못했어요"
+  },
+  "explore": {
+    "title": "탐색",
+    "subtitle": "다른 학습자가 공개한 단어장을 둘러보세요.",
+    "homeEntryHint": "공개 단어장 둘러보기",
+    "detail": "공개 단어장",
+    "searchPlaceholder": "단어장 제목 검색",
+    "loadMore": "더 보기",
+    "loadError": "공개 단어장을 불러오지 못했어요.",
+    "emptyTitle": "아직 공개된 단어장이 없어요",
+    "emptyHint": "첫 단어장을 공개해 다른 학습자와 나눠보세요.",
+    "noResults": "검색 결과가 없어요",
+    "noResultsHint": "'{{q}}'와(과) 일치하는 단어장을 찾지 못했어요.",
+    "clearSearch": "검색 지우기",
+    "previewTitle": "카드 미리보기",
+    "noCards": "이 단어장에는 카드가 없어요.",
+    "copyToMyDecks": "내 단어장으로 복사",
+    "copyHint": "카드를 그대로 복사한 내 단어장이 새로 만들어져요.",
+    "copiedToast": "내 단어장으로 복사했어요!",
+    "copyError": "복사하지 못했어요. 다시 시도해주세요.",
+    "notFound": "단어장을 찾을 수 없어요",
+    "notFoundHint": "비공개로 바뀌었거나 삭제되었을 수 있어요.",
+    "backToGallery": "탐색으로 돌아가기"
+  },
+  "share": {
+    "publicTitle": "공개됨",
+    "publicHint": "누구나 탐색에서 찾고 복사할 수 있어요.",
+    "privateTitle": "비공개",
+    "privateHint": "나만 볼 수 있어요. 공개하면 공유 링크가 생겨요.",
+    "toggleLabel": "공개 전환",
+    "madePublic": "단어장을 공개했어요!",
+    "madePrivate": "단어장을 비공개로 바꿨어요.",
+    "toggleError": "공개 설정을 바꾸지 못했어요.",
+    "copyLink": "링크 복사",
+    "copied": "복사됨",
+    "linkCopied": "공유 링크를 복사했어요!",
+    "linkCopyError": "링크를 복사하지 못했어요."
   }
 }

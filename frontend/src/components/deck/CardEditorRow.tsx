@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
-import { Card, TextField, Button, IconButton } from "../ui";
+import { Card, TextField, Button, IconButton, SpeakButton } from "../ui";
 import type { Card as CardType, UpdateCardPayload } from "../../types/deck";
 
 interface CardEditorRowProps {
@@ -11,6 +11,7 @@ interface CardEditorRowProps {
   onSave: (id: string | number, payload: UpdateCardPayload) => Promise<void>;
   onDelete: (id: string | number) => void;
   saving?: boolean;
+  langTerm?: string; // term 발음 언어(덱 lang_term)
 }
 
 export default function CardEditorRow({
@@ -19,6 +20,7 @@ export default function CardEditorRow({
   onSave,
   onDelete,
   saving,
+  langTerm,
 }: CardEditorRowProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -108,7 +110,7 @@ export default function CardEditorRow({
           {index + 1}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="break-words font-display text-base font-bold text-seed">
               {card.term}
             </span>
@@ -117,6 +119,8 @@ export default function CardEditorRow({
                 {card.reading}
               </span>
             )}
+            {/* term 발음 */}
+            <SpeakButton text={card.term} lang={langTerm} variant="ghost" size="sm" />
           </div>
           {card.definition.trim() && (
             <p className="mt-0.5 break-words text-body-sm text-seed/70">

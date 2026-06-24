@@ -9,6 +9,7 @@ import ChoiceQuiz from "../components/study/ChoiceQuiz";
 import TypingQuiz from "../components/study/TypingQuiz";
 import MatchGame from "../components/study/MatchGame";
 import { useStudySet, useAnswer } from "../hooks/useStudy";
+import { useDeck } from "../hooks/useDecks";
 import type { StudyCard, StudyMode, StudyOutcome } from "../types/study";
 
 // 모드별 최소 카드 수 (객관식·매칭은 4장 필요)
@@ -30,6 +31,8 @@ export default function StudySession() {
   const studyMode = mode as StudyMode;
 
   const { data, isLoading, isError } = useStudySet(deckId);
+  // 발음 재생용 학습 언어(lang_term) — 캐시된 덱 상세 재사용
+  const { data: deck } = useDeck(deckId);
   const answer = useAnswer();
 
   // 라운드 상태: 한 번 시작하면 카드 집합 고정(재시도 시 부분집합으로 갱신)
@@ -112,12 +115,15 @@ export default function StudySession() {
     onAnswer: recordAnswer,
     onComplete: handleComplete,
   };
+  const langTerm = deck?.lang_term; // term(학습 언어) 발음 기준
 
   return (
     <div key={roundKey}>
-      {studyMode === "flashcards" && <Flashcards {...shared} />}
-      {studyMode === "choice" && <ChoiceQuiz {...shared} />}
-      {studyMode === "typing" && <TypingQuiz {...shared} />}
+      {studyMode === "flashcards" && (
+        <Flashcards {...shared} langTerm={langTerm} />
+      )}
+      {studyMode === "choice" && <ChoiceQuiz {...shared} langTerm={langTerm} />}
+      {studyMode === "typing" && <TypingQuiz {...shared} langTerm={langTerm} />}
       {studyMode === "match" && <MatchGame {...shared} />}
     </div>
   );

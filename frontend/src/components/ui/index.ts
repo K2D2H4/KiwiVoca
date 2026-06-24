@@ -1,6 +1,7 @@
 // UI 프리미티브 배럴 — import { Button, Card, ... } from "components/ui"
 export { default as Button } from "./Button";
 export { default as IconButton } from "./IconButton";
+export { default as SpeakButton } from "./SpeakButton";
 export { default as TextField } from "./TextField";
 export { default as Select } from "./Select";
 export { default as Card } from "./Card";

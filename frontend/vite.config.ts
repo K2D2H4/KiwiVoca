@@ -12,4 +12,22 @@ export default defineConfig({
       clientPort: 8080,
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // vendor 청크 분리 — 초기 번들 축소, 캐시 효율↑
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query", "axios"],
+          "vendor-motion": ["framer-motion"],
+          "vendor-i18n": [
+            "i18next",
+            "react-i18next",
+            "i18next-browser-languagedetector",
+          ],
+          "vendor-icons": ["lucide-react"],
+        },
+      },
+    },
+  },
 });

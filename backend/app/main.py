@@ -6,6 +6,9 @@ from app.config import settings
 from app.routers import auth, decks, health
 from app.routers import import_
 from app.routers import study
+from app.routers import stats
+from app.routers import call
+from app.routers import tts
 
 app = FastAPI(title="KiwiVoca API", version="0.1.0")
 
@@ -22,6 +25,9 @@ app.include_router(auth.router)
 app.include_router(decks.router)
 app.include_router(import_.router)
 app.include_router(study.router)
+app.include_router(stats.router)
+app.include_router(call.router)
+app.include_router(tts.router)
 
 
 @app.get("/api")

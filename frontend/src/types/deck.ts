@@ -14,6 +14,11 @@ export interface Deck {
   updated_at?: string;
 }
 
+// GET /api/decks/public 항목 — 소유자명 포함 공개 덱 (탐색 갤러리)
+export interface PublicDeck extends Deck {
+  owner_name: string;
+}
+
 export interface Card {
   id: string | number;
   deck_id: string | number;

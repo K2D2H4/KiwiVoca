@@ -3,7 +3,17 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Camera, Layers, Play, Trash2 } from "lucide-react";
+import {
+  ArrowRight,
+  Camera,
+  Check,
+  Globe,
+  Layers,
+  Link2,
+  Lock,
+  Play,
+  Trash2,
+} from "lucide-react";
 import PageHeader from "../components/layout/PageHeader";
 import CardEditorRow from "../components/deck/CardEditorRow";
 import ModeSheet from "../components/study/ModeSheet";
@@ -21,6 +31,7 @@ import {
 import { langLabel } from "../lib/languages";
 import { useDeck, useDeleteDeck, deckKey } from "../hooks/useDecks";
 import { useCards, useCardMutations, cardsKey } from "../hooks/useCards";
+import { useTogglePublic } from "../hooks/useSharing";
 import type { UpdateCardPayload } from "../types/deck";
 
 export default function DeckDetail() {
@@ -40,6 +51,10 @@ export default function DeckDetail() {
   });
   const deleteDeck = useDeleteDeck();
   const { create, update, remove } = useCardMutations(id);
+  const togglePublic = useTogglePublic(id);
+
+  // 공유 링크 복사 완료 표시 (잠깐 체크 아이콘)
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const [confirmDeleteDeck, setConfirmDeleteDeck] = useState(false);
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
@@ -106,6 +121,35 @@ export default function DeckDetail() {
     navigate("/", { replace: true });
   };
 
+  // 공개 토글 — 실패 시 토스트
+  const onTogglePublic = async (next: boolean) => {
+    try {
+      await togglePublic.mutateAsync(next);
+      toast.success(next ? t("share.madePublic") : t("share.madePrivate"));
+    } catch {
+      toast.error(t("share.toggleError"));
+    }
+  };
+
+  // 공유 링크 클립보드 복사
+  const onCopyLink = async () => {
+    const url = `${window.location.origin}/explore/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      toast.success(t("share.linkCopied"));
+    } catch {
+      toast.error(t("share.linkCopyError"));
+    }
+  };
+
+  // 복사 체크 표시 자동 해제 (cleanup)
+  useEffect(() => {
+    if (!linkCopied) return;
+    const tid = setTimeout(() => setLinkCopied(false), 2000);
+    return () => clearTimeout(tid);
+  }, [linkCopied]);
+
   if (deckError) {
     return (
       <div className="min-h-[100dvh]">
@@ -169,6 +213,85 @@ export default function DeckDetail() {
             </p>
           </section>
         ) : null}
+
+        {/* 공유 — 공개 토글 + (공개 시) 링크 복사 */}
+        {deck && (
+          <section className="mt-3 overflow-hidden rounded-3xl bg-surface shadow-soft ring-1 ring-border">
+            <div className="flex items-center gap-3 p-4">
+              <span
+                className={[
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-colors",
+                  deck.is_public
+                    ? "bg-kiwi-100 text-kiwi-700"
+                    : "bg-ink-100 text-ink-600",
+                ].join(" ")}
+              >
+                {deck.is_public ? <Globe size={20} /> : <Lock size={20} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-body-sm font-bold text-seed">
+                  {deck.is_public ? t("share.publicTitle") : t("share.privateTitle")}
+                </p>
+                <p className="truncate text-caption text-seed/50">
+                  {deck.is_public ? t("share.publicHint") : t("share.privateHint")}
+                </p>
+              </div>
+              {/* 공개 스위치 — 44px+ 터치 타겟 */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!deck.is_public}
+                aria-label={t("share.toggleLabel")}
+                disabled={togglePublic.isPending}
+                onClick={() => onTogglePublic(!deck.is_public)}
+                className={[
+                  "relative h-8 w-[52px] shrink-0 rounded-full p-1 transition-colors outline-none",
+                  "focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+                  "disabled:opacity-60",
+                  deck.is_public ? "bg-kiwi" : "bg-ink-200",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "block h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
+                    deck.is_public ? "translate-x-5" : "translate-x-0",
+                  ].join(" ")}
+                />
+              </button>
+            </div>
+
+            {/* 공개 상태에서만 노출되는 공유 링크 바 */}
+            {deck.is_public && (
+              <div className="border-t border-border bg-kiwi-50/60 p-3">
+                <button
+                  type="button"
+                  onClick={onCopyLink}
+                  className="flex min-h-[44px] w-full items-center gap-2.5 rounded-2xl bg-surface px-3.5 text-left ring-1 ring-border transition active:scale-[0.99] hover:ring-kiwi-300"
+                >
+                  <Link2 size={17} className="shrink-0 text-kiwi-600" />
+                  <span className="min-w-0 flex-1 truncate text-body-sm text-seed/70">
+                    {`${window.location.origin}/explore/${id}`}
+                  </span>
+                  <span
+                    className={[
+                      "flex shrink-0 items-center gap-1 text-caption font-bold",
+                      linkCopied ? "text-kiwi-700" : "text-kiwi-600",
+                    ].join(" ")}
+                  >
+                    {linkCopied ? (
+                      <>
+                        <Check size={15} />
+                        {t("share.copied")}
+                      </>
+                    ) : (
+                      t("share.copyLink")
+                    )}
+                  </span>
+                </button>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* 주요 액션 — 학습 시작(눈에 띄게) + 사진으로 */}
         <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-[1.6fr_1fr]">
@@ -266,6 +389,7 @@ export default function DeckDetail() {
                   onSave={onSaveCard}
                   onDelete={(cid) => setPendingCardDelete(cid)}
                   saving={update.isPending}
+                  langTerm={deck?.lang_term}
                 />
               ))}
             </ul>

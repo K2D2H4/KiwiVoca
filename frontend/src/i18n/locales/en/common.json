@@ -47,7 +47,9 @@
     "home": "Home",
     "study": "Study",
     "add": "Add",
-    "profile": "Profile"
+    "profile": "Profile",
+    "stats": "Stats",
+    "explore": "Explore"
   },
   "deck": {
     "myDecks": "My decks",
@@ -140,6 +142,39 @@
     "pickDeck": "Pick a deck",
     "emptyTitle": "No decks to study"
   },
+  "call": {
+    "kicker": "AI Call",
+    "entryTitle": "Practice on a call with AI",
+    "entrySubtitle": "Use the words you learned in a voice chat",
+    "entryActive": "Pick a deck to call about",
+    "pickDeck": "Deck to practice on a call",
+    "title": "Call with AI",
+    "subtitle": "Chat by voice and practice the words you learned.",
+    "start": "Start call",
+    "micPermission": "Microphone access is required",
+    "connecting": "Connecting…",
+    "inCall": "On call",
+    "talking": "AI is speaking…",
+    "targetWords": "Today's words",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "end": "End call",
+    "retry": "Try again",
+    "relogin": "Log in again",
+    "again": "Call again",
+    "toStudy": "Back to study",
+    "endedTitle": "Call ended",
+    "endedSubtitle": "Nicely done! Let's practice again.",
+    "errTitle": "Can't start the call",
+    "errMicDenied": "Microphone access was denied. Please allow the microphone in your browser settings.",
+    "errMicUnavailable": "No microphone found. Please check your device.",
+    "errAuth": "Your session has expired. Please log in again.",
+    "errDeckForbidden": "You can't access this deck.",
+    "errDeckNotFound": "Deck not found.",
+    "errServer": "Something went wrong on the server. Please try again shortly.",
+    "errConnection": "Connection failed. Check your network and try again.",
+    "errUnknown": "Something went wrong. Please try again."
+  },
   "profile": {
     "statDecks": "Decks",
     "statCards": "Cards"
@@ -182,6 +217,15 @@
     "commitError": "Saving failed. Please try again.",
     "committed": "Imported {{count}} card(s)!"
   },
+  "tts": {
+    "play": "Listen to pronunciation"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "common": {
     "loading": "Loading…",
     "language": "Language",
@@ -192,5 +236,66 @@
     "edit": "Edit",
     "delete": "Delete",
     "close": "Close"
+  },
+  "stats": {
+    "title": "Study Stats",
+    "subtitle": "See how ripe your kiwi has grown",
+    "myStats": "My Stats",
+    "myStatsHint": "View progress and deck mastery",
+    "accuracy": "Accuracy",
+    "overallAccuracy": "Overall accuracy",
+    "streak": "Streak",
+    "today": "Studied today",
+    "due": "Due",
+    "daysUnit": "d",
+    "overall": "Overview",
+    "byDeck": "Deck mastery",
+    "studied": "Studied",
+    "mastered": "Mastered",
+    "notStudied": "New",
+    "deckCardSummary": "{{decks}} decks · {{cards}} cards",
+    "ofCards": "/ {{count}}",
+    "avgBoxLabel": "Avg mastery {{value}} / 5",
+    "startStudy": "Start studying",
+    "emptyTitle": "No study records yet",
+    "emptyHint": "Study some cards and your stats will grow here",
+    "loadError": "Couldn't load stats"
+  },
+  "explore": {
+    "title": "Explore",
+    "subtitle": "Browse decks shared by other learners.",
+    "homeEntryHint": "Browse public decks",
+    "detail": "Public deck",
+    "searchPlaceholder": "Search deck titles",
+    "loadMore": "Load more",
+    "loadError": "Couldn't load public decks.",
+    "emptyTitle": "No public decks yet",
+    "emptyHint": "Share your first deck so others can learn from it.",
+    "noResults": "No results",
+    "noResultsHint": "No decks matched '{{q}}'.",
+    "clearSearch": "Clear search",
+    "previewTitle": "Card preview",
+    "noCards": "This deck has no cards.",
+    "copyToMyDecks": "Copy to my decks",
+    "copyHint": "A new deck with all cards is added to your decks.",
+    "copiedToast": "Copied to your decks!",
+    "copyError": "Couldn't copy. Please try again.",
+    "notFound": "Deck not found",
+    "notFoundHint": "It may have been made private or deleted.",
+    "backToGallery": "Back to Explore"
+  },
+  "share": {
+    "publicTitle": "Public",
+    "publicHint": "Anyone can find and copy it in Explore.",
+    "privateTitle": "Private",
+    "privateHint": "Only you can see it. Make it public to get a share link.",
+    "toggleLabel": "Toggle public",
+    "madePublic": "Deck is now public!",
+    "madePrivate": "Deck is now private.",
+    "toggleError": "Couldn't change visibility.",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "linkCopied": "Share link copied!",
+    "linkCopyError": "Couldn't copy the link."
   }
 }
