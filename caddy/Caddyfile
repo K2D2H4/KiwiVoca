@@ -1,0 +1,3 @@
+kiwivoca.com, www.kiwivoca.com {
+	reverse_proxy nginx:80
+}
