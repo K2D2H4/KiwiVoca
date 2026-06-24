@@ -12,12 +12,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
 
-    # Gemini
+    # Gemini (이미지 → 카드 추출용)
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.5-flash"
-    # 발음 TTS — 단어/표현 음성 합성 (텍스트 추출용 GEMINI_MODEL 과 별개)
-    GEMINI_TTS_MODEL: str = "gemini-2.5-flash-preview-tts"
-    GEMINI_TTS_VOICE: str = "Kore"
+    # 발음 TTS — Google Cloud Text-to-Speech (Chirp 3 HD)
+    GOOGLE_TTS_API_KEY: str = ""
+    GOOGLE_TTS_VOICE: str = "Achernar"  # Chirp 3 HD 별 이름(언어 공통). 예: Achernar/Aoede/Kore
     # 합성 결과 파일 캐시 디렉터리 (docker named volume 마운트 지점)
     TTS_CACHE_DIR: str = "/app/tts_cache"
 
