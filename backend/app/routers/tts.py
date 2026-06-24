@@ -1,6 +1,6 @@
-"""발음 TTS 라우터 — Gemini TTS 음성 합성.
+"""발음 TTS 라우터 — Google Cloud Text-to-Speech(Chirp 3 HD) 음성 합성.
 
-GET /api/tts?text=<단어>&lang=<언어코드> → WAV 오디오(audio/wav).
+GET /api/tts?text=<단어>&lang=<언어코드> → MP3 오디오(audio/mpeg).
 
 인증 필요(get_current_user) — 공개 노출 시 키 과금 남용을 막기 위함.
 프론트는 axios(Authorization 헤더)로 blob 을 받아 재생한다.
@@ -23,7 +23,7 @@ def synthesize_tts(
     lang: str | None = Query(default=None),
     _user: User = Depends(get_current_user),
 ) -> Response:
-    """단어/표현 발음을 WAV 로 합성해 반환한다."""
+    """단어/표현 발음을 MP3 로 합성해 반환한다."""
     try:
         audio = tts_service.synthesize(text, lang)
     except tts_service.TTSError as exc:
@@ -31,6 +31,6 @@ def synthesize_tts(
 
     return Response(
         content=audio,
-        media_type="audio/wav",
+        media_type="audio/mpeg",  # Chirp 3 HD → MP3
         headers={"Cache-Control": "private, max-age=31536000, immutable"},
     )
