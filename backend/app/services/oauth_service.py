@@ -30,7 +30,7 @@ _PROVIDERS = {
         "token_url": "https://kauth.kakao.com/oauth/token",
         "userinfo_url": "https://kapi.kakao.com/v2/user/me",
         # 이메일은 비즈앱 검수/사용자 동의가 필요할 수 있음
-        "scope": "profile_nickname account_email",
+        "scope": "profile_nickname",
     },
 }
 
