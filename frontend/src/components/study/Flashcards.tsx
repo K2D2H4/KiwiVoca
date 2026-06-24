@@ -1,5 +1,5 @@
 // 플래시카드 — 스택 덱 + 3D flip + 드래그 비례 회전/색힌트 + 속도 기반 throw-off
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   motion,
@@ -11,6 +11,7 @@ import {
 } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
 import { SpeakButton } from "../ui";
+import { useTTS } from "../../hooks/useTTS";
 import { spring, tap } from "../../lib/motion";
 import type { StudyCard, StudyOutcome } from "../../types/study";
 
@@ -34,6 +35,7 @@ export default function Flashcards({
 }: FlashcardsProps) {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
+  const { prefetch } = useTTS();
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -51,6 +53,14 @@ export default function Flashcards({
   const lift = useTransform(x, [-180, 0, 180], [1.04, 1, 1.04]);
 
   const card = cards[index];
+
+  // 현재+다음 카드 term 을 미리 합성해 발음 버튼 지연 완화(캐시 워밍)
+  useEffect(() => {
+    for (let i = index; i < index + 2 && i < cards.length; i++) {
+      const term = cards[i]?.term;
+      if (term) prefetch(term, langTerm);
+    }
+  }, [index, cards, langTerm, prefetch]);
 
   const advance = useCallback(
     (isCorrect: boolean) => {
