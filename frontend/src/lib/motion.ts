@@ -7,6 +7,8 @@ export const spring = {
   snappy: { type: "spring", stiffness: 380, damping: 30 } as Transition,
   // 카드 전환/레이아웃 — 부드러운 감속
   smooth: { type: "spring", stiffness: 260, damping: 28 } as Transition,
+  // 플래시카드 등장 — 빠르게 정착(거의 임계감쇠, 오버슈트 없이 부드럽게)
+  crisp: { type: "spring", stiffness: 440, damping: 40 } as Transition,
   // 셀레브레이션/큰 리빌 — 통통한 바운스
   gentle: { type: "spring", stiffness: 180, damping: 16 } as Transition,
   // 스냅백 — 드래그 미달 시 제자리 복귀
