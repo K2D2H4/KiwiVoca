@@ -11,6 +11,7 @@ import logging
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.database import get_db
 from app.models.card import Card
@@ -96,7 +97,10 @@ async def extract(
     db.refresh(job)
 
     try:
-        candidates = extract_cards_from_images(
+        # 동기·블로킹 Gemini 호출 — 스레드풀에서 실행해 이벤트 루프 차단 방지
+        # (수초 소요 시 단일 워커의 WS/다른 요청이 정지하는 문제 해결)
+        candidates = await run_in_threadpool(
+            extract_cards_from_images,
             images=images,
             image_mimes=mimes,
             lang_term=lang_term,

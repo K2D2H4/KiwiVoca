@@ -127,8 +127,11 @@ async def call_ws(
             for task in pending:
                 try:
                     await task
-                except (asyncio.CancelledError, Exception):
+                except asyncio.CancelledError:
                     pass
+                except Exception as exc:  # noqa: BLE001
+                    # 취소 중 발생한 일반 예외는 흡수하되 관측을 위해 로깅
+                    logger.warning("call relay task cancel error: %s", type(exc).__name__)
             # 완료된 태스크의 예외는 로깅 (오디오/키 미노출)
             for task in done:
                 exc = task.exception()
@@ -159,9 +162,15 @@ async def _uplink(websocket: WebSocket, session) -> None:
         # 바이너리 = 오디오 청크
         data = message.get("bytes")
         if data is not None:
-            await session.send(
-                input={"data": data, "mime_type": "audio/pcm;rate=16000"}
-            )
+            # Gemini 세션 send 실패 시 통화가 조용히 끊기지 않도록 error 프레임 전송 후 종료
+            try:
+                await session.send(
+                    input={"data": data, "mime_type": "audio/pcm;rate=16000"}
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("uplink session.send (audio) failed: %s", type(exc).__name__)
+                await _safe_send_error(websocket, "통화 전송 중 오류가 발생했습니다.")
+                raise
             continue
 
         # 텍스트 = 제어 메시지(JSON)
@@ -174,13 +183,18 @@ async def _uplink(websocket: WebSocket, session) -> None:
             continue
 
         ctrl = payload.get("type")
-        if ctrl == "end_turn":
-            # 빈 audio 컨텍스트로 턴 종료 신호 — 텍스트 없이 모델 응답 유도
-            await session.send(input=".", end_of_turn=True)
-        elif ctrl == "text":
-            user_text = payload.get("text", "")
-            if user_text:
-                await session.send(input=user_text, end_of_turn=True)
+        try:
+            if ctrl == "end_turn":
+                # 빈 audio 컨텍스트로 턴 종료 신호 — 텍스트 없이 모델 응답 유도
+                await session.send(input=".", end_of_turn=True)
+            elif ctrl == "text":
+                user_text = payload.get("text", "")
+                if user_text:
+                    await session.send(input=user_text, end_of_turn=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("uplink session.send (control) failed: %s", type(exc).__name__)
+            await _safe_send_error(websocket, "통화 전송 중 오류가 발생했습니다.")
+            raise
 
 
 async def _downlink(websocket: WebSocket, session) -> None:

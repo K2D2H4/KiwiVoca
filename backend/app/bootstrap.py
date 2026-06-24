@@ -7,9 +7,23 @@ import time
 
 from sqlalchemy import text
 
+from app.config import settings
 from app.database import Base, engine
 # 모델을 import 해야 Base.metadata 에 테이블이 등록된다 (Phase 1+ 에서 채워짐)
 from app import models  # noqa: F401
+
+
+def _validate_secret_key() -> None:
+    """부팅 시 SECRET_KEY 검증 — 약한/누락 값이면 기동 중단.
+
+    config.py 기본값(dev_secret_change_me)은 로컬 import 편의를 위해 둔다.
+    실제 서비스 기동은 .env 의 32자 이상 랜덤 시크릿이 있어야만 통과한다.
+    HS256 대칭키 위조로 인한 전체 인증 우회를 막기 위함.
+    """
+    if settings.SECRET_KEY in ("dev_secret_change_me", "") or len(settings.SECRET_KEY) < 32:
+        raise RuntimeError(
+            "SECRET_KEY가 설정되지 않았거나 너무 약합니다(.env에 32자 이상 랜덤값 설정)."
+        )
 
 
 def wait_for_db(max_retries: int = 30, delay: float = 2.0) -> None:
@@ -26,6 +40,7 @@ def wait_for_db(max_retries: int = 30, delay: float = 2.0) -> None:
 
 
 def main() -> None:
+    _validate_secret_key()
     wait_for_db()
     Base.metadata.create_all(bind=engine)
     print("[bootstrap] schema ready")

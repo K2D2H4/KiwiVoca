@@ -159,6 +159,10 @@ def record_answer(
                 )
                 .first()
             )
+            # 재조회 실패(경쟁 중 행 삭제 등) 시 None 접근으로 AttributeError 가 나지
+            # 않도록 명확한 예외로 변환한다 — 클라이언트는 재시도하면 된다.
+            if progress is None:
+                raise CardNotFound()
 
     # 3) 박스/카운트 갱신
     if is_correct:
