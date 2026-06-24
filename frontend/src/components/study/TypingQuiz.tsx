@@ -6,6 +6,7 @@ import StudyTopBar from "./StudyTopBar";
 import ScoreChip from "./ScoreChip";
 import { SpeakButton } from "../ui";
 import { useTTS } from "../../hooks/useTTS";
+import { useSound } from "../../hooks/useSound";
 import { isAnswerCorrect, shuffle } from "../../lib/grading";
 import {
   spring,
@@ -34,6 +35,7 @@ export default function TypingQuiz({
 }: TypingQuizProps) {
   const { t } = useTranslation();
   const { prefetch } = useTTS();
+  const { play } = useSound();
   const queue = useMemo(() => shuffle(cards), [cards]);
 
   const [index, setIndex] = useState(0);
@@ -55,6 +57,7 @@ export default function TypingQuiz({
     if (!card || phase !== "input" || !value.trim()) return;
     const ok = isAnswerCorrect(value, card.term);
     setPhase(ok ? "correct" : "wrong");
+    play(ok ? "correct" : "wrong");
     if (ok) setScore((p) => p + 1);
     onAnswer(card.id, ok);
     setOutcomes((p) => [...p, { cardId: card.id, isCorrect: ok }]);

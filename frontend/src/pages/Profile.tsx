@@ -11,9 +11,11 @@ import {
   Palette,
   BarChart3,
   ChevronRight,
+  Music,
 } from "lucide-react";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import ThemeToggle from "../components/ThemeToggle";
+import SoundToggle from "../components/SoundToggle";
 import { Avatar, Card, Skeleton, Button } from "../components/ui";
 import { useAuthStore } from "../store/authStore";
 import { useDecks } from "../hooks/useDecks";
@@ -112,6 +114,19 @@ export default function Profile() {
               <p className="text-body font-bold text-seed">{t("theme.label")}</p>
             </div>
             <ThemeToggle variant="full" />
+          </Card>
+        </motion.div>
+
+        {/* 효과음 설정 */}
+        <motion.div variants={staggerItem}>
+          <Card padding="md">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-kiwi-100 text-kiwi-700">
+                <Music size={18} strokeWidth={2.3} />
+              </span>
+              <p className="text-body font-bold text-seed">{t("sound.label")}</p>
+            </div>
+            <SoundToggle />
           </Card>
         </motion.div>
 

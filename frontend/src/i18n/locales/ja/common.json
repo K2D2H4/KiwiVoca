@@ -226,6 +226,11 @@
     "dark": "ダーク",
     "system": "システム"
   },
+  "sound": {
+    "label": "効果音",
+    "on": "オン",
+    "off": "オフ"
+  },
   "common": {
     "loading": "読み込み中…",
     "language": "言語",

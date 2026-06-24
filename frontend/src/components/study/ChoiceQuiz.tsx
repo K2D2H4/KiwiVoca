@@ -6,6 +6,7 @@ import StudyTopBar from "./StudyTopBar";
 import ScoreChip from "./ScoreChip";
 import { SpeakButton } from "../ui";
 import { useTTS } from "../../hooks/useTTS";
+import { useSound } from "../../hooks/useSound";
 import { shuffle } from "../../lib/grading";
 import {
   spring,
@@ -52,6 +53,7 @@ export default function ChoiceQuiz({
 }: ChoiceQuizProps) {
   const { t } = useTranslation();
   const { prefetch } = useTTS();
+  const { play } = useSound();
   const questions = useMemo(() => buildQuestions(cards), [cards]);
 
   const [index, setIndex] = useState(0);
@@ -73,6 +75,7 @@ export default function ChoiceQuiz({
     if (picked !== null || !q) return; // 잠금
     const isCorrect = opt === q.answer;
     setPicked(opt);
+    play(isCorrect ? "correct" : "wrong");
     if (isCorrect) setScore((p) => p + 1);
     onAnswer(q.card.id, isCorrect);
     const next = [...outcomes, { cardId: q.card.id, isCorrect }];

@@ -226,6 +226,11 @@
     "dark": "다크",
     "system": "시스템"
   },
+  "sound": {
+    "label": "효과음",
+    "on": "켜짐",
+    "off": "꺼짐"
+  },
   "common": {
     "loading": "불러오는 중…",
     "language": "언어",
