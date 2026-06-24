@@ -7,10 +7,14 @@ state(CSRF 방지)는 서버 상태 저장 없이 SECRET_KEY 서명 JWT(단명)�
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
+import logging
+
 import httpx
 from jose import JWTError, jwt
 
 from app.config import settings
+
+logger = logging.getLogger("oauth")
 
 # state 토큰 타입 (access/refresh 와 구분)
 _STATE_TOKEN_TYPE = "oauth_state"
@@ -131,6 +135,7 @@ def _exchange_code(provider: str, code: str) -> str:
         raise OAuthError("token_exchange_failed") from exc
 
     if resp.status_code != 200:
+        logger.warning("[oauth] %s token exchange failed status=%s body=%s", provider, resp.status_code, resp.text[:400])
         raise OAuthError("token_exchange_failed")
 
     access_token = resp.json().get("access_token")
@@ -152,6 +157,7 @@ def _fetch_profile(provider: str, access_token: str) -> dict:
         raise OAuthError("profile_fetch_failed") from exc
 
     if resp.status_code != 200:
+        logger.warning("[oauth] %s profile fetch failed status=%s body=%s", provider, resp.status_code, resp.text[:400])
         raise OAuthError("profile_fetch_failed")
     return resp.json()
 
