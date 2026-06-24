@@ -226,6 +226,11 @@
     "dark": "Dark",
     "system": "System"
   },
+  "sound": {
+    "label": "Sound effects",
+    "on": "On",
+    "off": "Off"
+  },
   "common": {
     "loading": "Loading…",
     "language": "Language",

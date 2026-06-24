@@ -12,6 +12,7 @@ import {
 import StudyTopBar from "./StudyTopBar";
 import { SpeakButton } from "../ui";
 import { useTTS } from "../../hooks/useTTS";
+import { useSound } from "../../hooks/useSound";
 import { spring, tap } from "../../lib/motion";
 import type { StudyCard, StudyOutcome } from "../../types/study";
 
@@ -36,6 +37,7 @@ export default function Flashcards({
   const { t } = useTranslation();
   const reduce = useReducedMotion();
   const { prefetch } = useTTS();
+  const { play } = useSound();
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -69,8 +71,9 @@ export default function Flashcards({
       const next = [...outcomes, { cardId: card.id, isCorrect }];
       setOutcomes(next);
       if (index + 1 >= cards.length) {
-        onComplete(next);
+        onComplete(next); // 완료음은 결과 화면(StudyResult)에서 재생 — 마지막 카드 피드백음 생략
       } else {
+        play(isCorrect ? "correct" : "wrong");
         setIndex((p) => p + 1);
         setFlipped(false);
         setFlyAway(0);
@@ -79,7 +82,7 @@ export default function Flashcards({
         // 다음 카드 mount 시 onAnimationStart에서 해제한다.
       }
     },
-    [card, cards.length, index, onAnswer, onComplete, outcomes, x]
+    [card, cards.length, index, onAnswer, onComplete, outcomes, x, play]
   );
 
   // 드래그 종료 — 거리 또는 속도 기반 판정
@@ -97,6 +100,12 @@ export default function Flashcards({
   const triggerButton = (isCorrect: boolean) => {
     if (flyAway !== 0) return;
     setFlyAway(isCorrect ? 1 : -1);
+  };
+
+  // 카드 뒤집기 — 가벼운 휘릭 효과음
+  const toggleFlip = () => {
+    play("flip");
+    setFlipped((p) => !p);
   };
 
   if (!card) return null;
@@ -192,11 +201,11 @@ export default function Flashcards({
               <motion.div
                 role="button"
                 tabIndex={0}
-                onClick={() => setFlipped((p) => !p)}
+                onClick={toggleFlip}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setFlipped((p) => !p);
+                    toggleFlip();
                   }
                 }}
                 className="relative block w-full cursor-pointer text-left"

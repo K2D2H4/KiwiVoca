@@ -1,11 +1,13 @@
 // 학습 결과 — 정답률 카운트업, 통계 stagger, 고득점 키위 셀레브레이션(transform 컨페티), 틀린 카드 + 재시도.
 // 카운트업/컨페티/stagger 모션 유지, 레이아웃·타이포·버튼만 디자인 시스템화.
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
 import { RotateCcw, Home, RefreshCw, Star } from "lucide-react";
 import KiwiBuddy, { type KiwiMood } from "../KiwiBuddy";
 import { Card, Button } from "../ui";
 import { useCountUp } from "../../hooks/useCountUp";
+import { useSound } from "../../hooks/useSound";
 import { spring, staggerParent, staggerItem } from "../../lib/motion";
 import type { StudyCard, StudyOutcome } from "../../types/study";
 
@@ -26,6 +28,7 @@ export default function StudyResult({
 }: StudyResultProps) {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
+  const { play } = useSound();
 
   const total = outcomes.length;
   const correct = outcomes.filter((o) => o.isCorrect).length;
@@ -46,6 +49,14 @@ export default function StudyResult({
   const mood: KiwiMood =
     tier === "perfect" ? "love" : tier === "good" ? "happy" : "neutral";
   const celebrate = accuracy >= 90;
+
+  // 결과 화면 진입 시 마무리 효과음 1회 — 만점이면 셀레브레이션, 아니면 경쾌한 완료음
+  const playedRef = useRef(false);
+  useEffect(() => {
+    if (playedRef.current) return; // StrictMode 중복 마운트 가드
+    playedRef.current = true;
+    play(celebrate ? "celebrate" : "complete");
+  }, [celebrate, play]);
 
   return (
     <div className="bg-orchard relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">

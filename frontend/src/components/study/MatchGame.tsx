@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
+import { useSound } from "../../hooks/useSound";
 import { shuffle } from "../../lib/grading";
 import { spring, shakeKeyframes, shakeTransition } from "../../lib/motion";
 import type { StudyCard, StudyOutcome } from "../../types/study";
@@ -40,6 +41,7 @@ export default function MatchGame({
   onComplete,
 }: MatchGameProps) {
   const { t } = useTranslation();
+  const { play } = useSound();
 
   const boardCards = useMemo(
     () => shuffle(cards).slice(0, PAIRS_PER_BOARD),
@@ -80,6 +82,7 @@ export default function MatchGame({
   const onTap = (tile: Tile) => {
     if (matched.has(tile.key) || wrongPair) return;
     if (!selected) {
+      play("tap"); // 첫 타일 선택 — 말랑한 팝
       setSelected(tile);
       return;
     }
@@ -92,6 +95,7 @@ export default function MatchGame({
     const isMatch =
       selected.cardId === tile.cardId && selected.side !== tile.side;
     if (isMatch) {
+      play("match");
       onAnswer(tile.cardId, true);
       outcomesRef.current.push({ cardId: tile.cardId, isCorrect: true });
       const a = selected.key;
@@ -104,6 +108,7 @@ export default function MatchGame({
       }, 260);
     } else {
       // 오답 — shake 후 해제
+      play("wrong");
       setWrongPair([selected.key, tile.key]);
       window.setTimeout(() => {
         setWrongPair(null);
