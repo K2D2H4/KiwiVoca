@@ -65,7 +65,7 @@ def _upsert_oauth_user(db: Session, provider: str, profile: dict) -> User:
     # 3) 신규 생성
     #    이메일 미동의(카카오)면 unique 제약 충족용 placeholder 이메일 사용.
     if email is None:
-        email = f"kakao_{oauth_sub}@users.kiwivoca.local"
+        email = f"kakao_{oauth_sub}@users.kiwivoca.com"
 
     user = User(
         email=email,
