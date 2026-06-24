@@ -1,10 +1,11 @@
 // 객관식 — 문제 슬라이드 전환, 보기 stagger 등장, 정답 체크 바운스 / 오답 shake + 정답 강조
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
 import ScoreChip from "./ScoreChip";
 import { SpeakButton } from "../ui";
+import { useTTS } from "../../hooks/useTTS";
 import { shuffle } from "../../lib/grading";
 import {
   spring,
@@ -50,6 +51,7 @@ export default function ChoiceQuiz({
   langTerm,
 }: ChoiceQuizProps) {
   const { t } = useTranslation();
+  const { prefetch } = useTTS();
   const questions = useMemo(() => buildQuestions(cards), [cards]);
 
   const [index, setIndex] = useState(0);
@@ -58,6 +60,14 @@ export default function ChoiceQuiz({
   const [outcomes, setOutcomes] = useState<StudyOutcome[]>([]);
 
   const q = questions[index];
+
+  // 현재+다음 문항 term 을 미리 합성해 발음 버튼 지연 완화(캐시 워밍)
+  useEffect(() => {
+    const cur = questions[index]?.card.term;
+    const nxt = questions[index + 1]?.card.term;
+    if (cur) prefetch(cur, langTerm);
+    if (nxt) prefetch(nxt, langTerm);
+  }, [index, questions, langTerm, prefetch]);
 
   const onPick = (opt: string) => {
     if (picked !== null || !q) return; // 잠금

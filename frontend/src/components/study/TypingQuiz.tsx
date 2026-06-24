@@ -1,10 +1,11 @@
 // 타이핑 — 문제=definition, 입력=term. 제출 reveal: 정답 체크 바운스 / 오답 input shake + 정답 슬라이드
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
 import ScoreChip from "./ScoreChip";
 import { SpeakButton } from "../ui";
+import { useTTS } from "../../hooks/useTTS";
 import { isAnswerCorrect, shuffle } from "../../lib/grading";
 import {
   spring,
@@ -32,6 +33,7 @@ export default function TypingQuiz({
   langTerm,
 }: TypingQuizProps) {
   const { t } = useTranslation();
+  const { prefetch } = useTTS();
   const queue = useMemo(() => shuffle(cards), [cards]);
 
   const [index, setIndex] = useState(0);
@@ -42,6 +44,11 @@ export default function TypingQuiz({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const card = queue[index];
+
+  // 현재 문항 term 을 미리 합성해 정답 노출 시 발음 버튼 지연 완화(캐시 워밍)
+  useEffect(() => {
+    if (card?.term) prefetch(card.term, langTerm);
+  }, [card, langTerm, prefetch]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();

@@ -2,6 +2,7 @@
 // 단어/표현을 서버에서 고품질 음성(WAV)으로 합성해 재생한다.
 // 네트워크/합성 실패 시 브라우저 내장 Web Speech API 로 자동 폴백(오프라인·resilience).
 // speak(text, langCode): 덱 lang_term(en/ko/ru/ja 등)을 서버에 넘겨 해당 언어로 읽음.
+// prefetch(text, langCode): 재생 없이 백그라운드로 미리 합성해 캐시에 채움(클릭 지연 완화).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 
@@ -35,10 +36,42 @@ function getSynth(): SpeechSynthesis | null {
   return window.speechSynthesis ?? null;
 }
 
-// 모듈 전역: 합성 결과 blob URL 캐시 + 현재 재생 중 오디오(전역 1개만 재생).
-// 모든 SpeakButton 인스턴스가 캐시를 공유해 같은 단어 재요청/재과금을 막는다.
+// 모듈 전역: 합성 결과 blob URL 캐시 + 진행 중 요청(인플라이트) + 현재 재생 오디오.
+// 모든 SpeakButton/학습화면이 공유 → 같은 단어 재요청/재과금 방지, hover→click 중복요청 제거.
 const blobCache = new Map<string, string>();
+const inFlight = new Map<string, Promise<string>>();
 let currentAudio: HTMLAudioElement | null = null;
+
+function cacheKey(text: string, langCode?: string): string {
+  return `${langCode ?? ""}|${text}`;
+}
+
+// 합성 오디오 blob URL 획득 — 캐시 히트 즉시, 진행 중이면 그 Promise 공유, 없으면 새로 요청.
+// 실패 시 reject (호출부에서 폴백/무시 처리).
+function fetchBlobUrl(text: string, langCode: string | undefined, key: string): Promise<string> {
+  const cached = blobCache.get(key);
+  if (cached) return Promise.resolve(cached);
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+
+  const p = api
+    .get("/tts", {
+      params: langCode ? { text, lang: langCode } : { text },
+      responseType: "blob",
+    })
+    .then((res) => {
+      const url = URL.createObjectURL(res.data as Blob);
+      blobCache.set(key, url);
+      inFlight.delete(key);
+      return url;
+    })
+    .catch((err) => {
+      inFlight.delete(key);
+      throw err;
+    });
+  inFlight.set(key, p);
+  return p;
+}
 
 // 진행 중 재생(서버 오디오 + 폴백 음성) 전부 중단
 function stopAll(): void {
@@ -113,6 +146,13 @@ export function useTTS() {
     [pickVoice]
   );
 
+  // 백그라운드 워밍 — 재생 없이 미리 합성해 캐시에 채움. 실패는 조용히 무시(클릭 때 재시도/폴백).
+  const prefetch = useCallback((text: string, langCode?: string) => {
+    const clean = text?.trim();
+    if (!clean) return;
+    fetchBlobUrl(clean, langCode, cacheKey(clean, langCode)).catch(() => {});
+  }, []);
+
   const speak = useCallback(
     async (text: string, langCode?: string) => {
       const clean = text?.trim();
@@ -123,17 +163,9 @@ export function useTTS() {
       // 클릭 즉시 재생 표시(서버 합성 지연 동안 펄스 유지)
       setSpeaking(true);
 
-      const key = `${langCode ?? ""}|${clean}`;
       try {
-        let url = blobCache.get(key);
-        if (!url) {
-          const res = await api.get("/tts", {
-            params: langCode ? { text: clean, lang: langCode } : { text: clean },
-            responseType: "blob",
-          });
-          url = URL.createObjectURL(res.data as Blob);
-          blobCache.set(key, url);
-        }
+        // 캐시/인플라이트 공유 — hover 프리페치가 진행 중이면 그 결과를 그대로 사용
+        const url = await fetchBlobUrl(clean, langCode, cacheKey(clean, langCode));
         // 합성/요청 중 새 speak 가 들어왔으면 이 재생은 폐기
         if (token !== tokenRef.current) return;
 
@@ -170,5 +202,5 @@ export function useTTS() {
     [fallbackSpeak]
   );
 
-  return { speak, speaking, supported };
+  return { speak, prefetch, speaking, supported };
 }

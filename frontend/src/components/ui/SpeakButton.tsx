@@ -21,13 +21,20 @@ export default function SpeakButton({
   className = "",
 }: SpeakButtonProps) {
   const { t } = useTranslation();
-  const { speak, speaking, supported } = useTTS();
+  const { speak, prefetch, speaking, supported } = useTTS();
 
   // 미지원 환경이면 버튼 자체를 숨김
   if (!supported || !text.trim()) return null;
 
+  // 클릭 직전 의도(hover·press) 시 미리 합성 → 체감 지연 완화
+  const warm = () => prefetch(text, lang);
+
   return (
-    <span className="relative inline-flex shrink-0">
+    <span
+      className="relative inline-flex shrink-0"
+      onPointerEnter={warm}
+      onPointerDown={warm}
+    >
       {/* 재생 중 펄스 링 — 가벼운 시각 피드백 */}
       {speaking && (
         <span
