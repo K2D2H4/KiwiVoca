@@ -302,5 +302,9 @@
     "copied": "Copied",
     "linkCopied": "Share link copied!",
     "linkCopyError": "Couldn't copy the link."
+  },
+  "oauth": {
+    "signingIn": "Signing you in…",
+    "failed": "Social login failed"
   }
 }

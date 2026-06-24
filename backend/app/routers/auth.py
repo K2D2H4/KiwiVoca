@@ -1,7 +1,7 @@
 """인증 라우터 — 이메일/비밀번호 회원가입·로그인·refresh·me.
 
-TODO: OAuth(google/kakao)는 후속 단계. provider 자격증명(.env)이 필요하며,
-      별도 oauth 라우터(GET /auth/{provider}/login, /callback)로 구현 예정.
+OAuth(google/kakao) 소셜 로그인은 app/routers/oauth.py 에 별도 구현됨
+(GET /api/auth/{provider}/login, /api/auth/{provider}/callback).
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session

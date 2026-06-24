@@ -11,6 +11,7 @@ import AppShell from "./components/layout/AppShell";
 // 화면들은 라우트 진입 시 청크 로드
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
+const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
 const Home = lazy(() => import("./pages/Home"));
 const DeckNew = lazy(() => import("./pages/DeckNew"));
 const ImportPhoto = lazy(() => import("./pages/ImportPhoto"));
@@ -30,6 +31,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          {/* OAuth 콜백 — 공개(미인증) 라우트, 셸·보호 밖. 토큰 저장 후 홈으로 */}
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
