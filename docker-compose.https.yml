@@ -1,0 +1,20 @@
+# 배포(prod) HTTPS 오버레이 — Caddy가 80/443에서 Let's Encrypt TLS 처리 후 내부 nginx로 프록시.
+# nginx는 .env의 HOST_PORT(예: 8081)로 호스트 바인딩(외부 노출 X, Caddy만 80/443).
+# 사용: docker compose -f docker-compose.prod.yml -f docker-compose.https.yml up -d --build
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ${COMPOSE_CONTAINER_PREFIX:-kiwivoca}-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nginx
+volumes:
+  caddy_data:
+  caddy_config:
