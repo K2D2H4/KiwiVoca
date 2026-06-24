@@ -1,0 +1,33 @@
+{
+  "name": "키위보카 — 즐겁게 외우는 외국어",
+  "short_name": "키위보카",
+  "description": "사진 한 장으로 단어장을 만들고, 게임처럼 즐겁게 외우는 외국어 학습 앱.",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF8F0",
+  "theme_color": "#6BBF59",
+  "icons": [
+    {
+      "src": "/icons/kiwi.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/kiwi-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/kiwi-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

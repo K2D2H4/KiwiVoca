@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#6BBF59" />
+    <title>키위보카 — 즐겁게 외우는 외국어</title>
+
+    <!-- favicon / PWA -->
+    <link rel="icon" type="image/svg+xml" href="/icons/kiwi.svg" />
+    <link rel="apple-touch-icon" href="/icons/kiwi-180.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- FOUC 방지: 페인트 전에 저장된 테마를 <html>에 선반영 -->
+    <script>
+      (function () {
+        try {
+          var m = localStorage.getItem("kiwivoca.theme") || "system";
+          var dark =
+            m === "dark" ||
+            (m === "system" &&
+              window.matchMedia &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) {
+            document.documentElement.classList.add("dark");
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute("content", "#141B12");
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- 웹폰트: 본문 Pretendard(KR+Latin) / 제목 Quicksand(라운드 디스플레이) -->
+    <!-- 다국어 폴백: ru(키릴) en은 위 폰트로 커버, ja는 Noto Sans JP 폴백 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Noto+Sans+JP:wght@500;700;800&display=swap"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
