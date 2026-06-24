@@ -22,6 +22,32 @@ MAX_TARGET_WORDS = 30
 # Gemini Live 모델 (네이티브 오디오, 검증 완료)
 LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-09-2025"
 
+# 통화 연결 직후 AI가 먼저 인사하도록 유도하는 킥오프 신호.
+# 사용자 발화가 아니라 "지금 네가 먼저 말할 차례"라는 무대 지시(stage direction)로,
+# 모델이 그대로 읽지 않고 행동(첫 인사 발화)하도록 대괄호로 감싼다.
+GREETING_KICKOFF = (
+    "[The phone just connected. You are the caller, so speak first now: "
+    "greet me warmly and kick off the conversation.]"
+)
+
+# 언어 코드 → 영어 표기 (system_instruction 을 모델이 명확히 이해하도록).
+# 미등록 코드는 코드 문자열을 그대로 사용한다.
+_LANG_NAMES = {
+    "ko": "Korean",
+    "en": "English",
+    "ja": "Japanese",
+    "zh": "Chinese",
+    "ru": "Russian",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "vi": "Vietnamese",
+}
+
+
+def _lang_name(code: str) -> str:
+    return _LANG_NAMES.get(code, code)
+
 
 class DeckNotAccessible(Exception):
     """덱이 없거나, 타인의 비공개 덱이라 접근 불가."""
@@ -58,11 +84,11 @@ def target_words(cards: list[Card]) -> list[str]:
 
 
 def build_system_instruction(deck: Deck, cards: list[Card]) -> str:
-    """튜터용 system_instruction 문자열 구성.
+    """Gemini Live 튜터 페르소나용 system_instruction 구성.
 
-    학습 언어(deck.lang_term)로 자연스러운 일상 대화를 하되,
-    덱의 표현(term — definition)을 의도적으로 자주 사용하고
-    학습자가 쓰도록 유도하게 한다.
+    "키위(Kiwi)"라는 친근한 친구 캐릭터가 학습 언어(deck.lang_term)로
+    친구처럼 편한 반말 대화를 하되, 덱의 표현(term — definition)을 자주 쓰고
+    학습자도 쓰도록 유도한다. 말투는 통화 내내 일관되게 친근/캐주얼을 유지한다.
     """
     # 카드 목록을 "term — definition (예: example)" 형태로 정리
     lines: list[str] = []
@@ -74,18 +100,38 @@ def build_system_instruction(deck: Deck, cards: list[Card]) -> str:
     vocab_block = "\n".join(lines) if lines else "(no specific vocabulary provided)"
 
     kind_label = "grammar points" if deck.kind == "grammar" else "vocabulary"
+    target_lang = _lang_name(deck.lang_term)
+    native_lang = _lang_name(deck.lang_def)
 
-    # 프롬프트는 영어로 작성하되 대상 언어 코드를 명시한다.
+    # 프롬프트는 영어로 작성하되 대상/모국 언어를 명시한다.
     return (
-        "You are a warm, encouraging phone-call partner and language tutor. "
-        f"The learner is studying the language with code '{deck.lang_term}', and is "
-        f"currently practicing the following {kind_label}:\n"
+        "You are 키위 (Kiwi), a cheerful, warm little kiwi-bird buddy who is calling "
+        "the learner on the phone. You are a close friend hanging out on a call — NOT a "
+        "formal teacher. The goal is a fun, relaxed chat where you naturally slip in the "
+        "words your friend is studying.\n\n"
+        "# Who you're talking to\n"
+        f"Your friend is learning {target_lang}. Their native language is {native_lang}. "
+        f"Right now they're practicing this {kind_label}:\n"
         f"{vocab_block}\n\n"
-        f"Have a natural, friendly everyday phone conversation in the '{deck.lang_term}' "
-        "language. Deliberately and frequently weave in the expressions above, and gently "
-        "prompt the learner to use them too. Speak slowly and clearly with simple sentences, "
-        "keep an encouraging tone, and occasionally give light, kind corrections. "
-        "Keep your turns fairly short so it feels like a real back-and-forth call."
+        "# How you talk\n"
+        f"- Speak in {target_lang} as the main language of the call.\n"
+        "- Keep ONE consistent tone for the whole call: casual, warm, playful — the way "
+        "you'd talk to a close friend. Never switch into a stiff or formal register.\n"
+        "- For languages that have politeness levels (Korean, Japanese, etc.), stay in "
+        "the casual/intimate friend register the ENTIRE call — Korean 반말, Japanese "
+        "タメ口. Never use 존댓말 / polite-formal endings, not even once.\n"
+        "- Use short, simple sentences. React, laugh, ask little follow-up questions — "
+        "make it feel like a real back-and-forth phone call between friends, not a lesson.\n"
+        f"- Naturally and frequently work the {kind_label} above into the chat, and gently "
+        "nudge your friend to use them too.\n"
+        f"- If your friend gets stuck, you can briefly drop into {native_lang} to help or "
+        "cheer them on — but keep the SAME casual, friendly register there too.\n"
+        "- Give light, kind corrections only when it actually helps; never nitpick.\n"
+        "- Keep your turns short so it stays a real conversation, not a monologue.\n\n"
+        "# Starting the call\n"
+        "You are the one who called, so YOU speak first. Open with a warm, casual greeting "
+        f"in {target_lang}, quickly say it's you (키위), and kick things off with a light, "
+        "friendly question — like an old friend who just called to catch up."
     )
 
 

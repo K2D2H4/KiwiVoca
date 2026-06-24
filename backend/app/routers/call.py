@@ -114,6 +114,16 @@ async def call_ws(
                 json.dumps({"type": "ready", "target_words": words})
             )
 
+            # AI가 먼저 인사하도록 킥오프 신호 전송(사용자 발화 아님).
+            # native-audio + 자동 VAD 는 입력이 있어야 발화하므로, 무대 지시 한 줄로
+            # 첫 턴(인사)을 유도한다. 응답 오디오는 아래 downlink 가 수신한다.
+            try:
+                await session.send(
+                    input=call_service.GREETING_KICKOFF, end_of_turn=True
+                )
+            except Exception as exc:  # noqa: BLE001 — 킥오프 실패해도 통화는 계속
+                logger.warning("greeting kickoff failed: %s", type(exc).__name__)
+
             # 두 태스크: 클라→Gemini(업링크), Gemini→클라(다운링크)
             uplink = asyncio.create_task(_uplink(websocket, session))
             downlink = asyncio.create_task(_downlink(websocket, session))
@@ -206,7 +216,8 @@ async def _downlink(websocket: WebSocket, session) -> None:
         sc = response.server_content
         if sc is None:
             continue
-        if sc.model_turn:
+        # parts 가 None 인 메시지(메타데이터 전용 등)에도 통화가 끊기지 않도록 방어
+        if sc.model_turn and sc.model_turn.parts:
             for part in sc.model_turn.parts:
                 if part.inline_data and part.inline_data.data:
                     await websocket.send_bytes(part.inline_data.data)
