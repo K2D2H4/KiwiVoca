@@ -163,6 +163,89 @@ def extract_cards_from_images(
     return cards
 
 
+def generate_vocab(
+    lang_term: str,
+    lang_def: str,
+    theme: str,
+    level: str | None,
+    count: int,
+) -> list[dict]:
+    """테마 기반으로 단어 카드 후보를 생성한다 (자동 커밋 X, 검수용).
+
+    Args:
+        lang_term: 학습 언어 코드 (예: 'en', 'ja')
+        lang_def: 모국어 코드 (예: 'ko')
+        theme: 단어 주제 (예: '여행', '음식')
+        level: 난이도 라벨 (선택, 예: '초급')
+        count: 생성할 단어 수
+
+    Returns:
+        후보 카드 dict 리스트. 각 dict: {term, reading, definition, example}.
+        reading/example 은 빈 값이면 None.
+
+    Raises:
+        ExtractionError: 모델 호출/쿼터/파싱 실패.
+    """
+    if not settings.GEMINI_API_KEY:
+        raise ExtractionError("Gemini API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
+
+    level_hint = f"난이도 '{level}' 수준으로. " if level else ""
+    prompt = (
+        f"학습 언어 '{lang_term}' 에서 주제 '{theme}' 와 관련된 단어/표현을 {count}개 생성하라.\n"
+        f"{level_hint}각 항목은 다음 필드를 가진다:\n"
+        f"- term: 학습 대상 단어/표현 (학습 언어 '{lang_term}')\n"
+        "- reading: 발음/요미가나/병음 등 (있을 때만, 없으면 빈 문자열)\n"
+        f"- definition: 뜻/설명 ('{lang_def}' 언어로)\n"
+        f"- example: 학습 언어 예문 (없으면 빈 문자열)\n"
+        "서로 중복되지 않는 실용적인 단어로 구성하라."
+    )
+
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=_RESPONSE_SCHEMA,
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Gemini vocab generate failed: %s", exc)
+        msg = str(exc).lower()
+        if "quota" in msg or "resource_exhausted" in msg or "429" in msg:
+            raise ExtractionError(
+                "AI 사용량 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+            ) from exc
+        if "permission" in msg or "api key" in msg or "401" in msg or "403" in msg:
+            raise ExtractionError(
+                "AI 인증에 실패했습니다. API 키 설정을 확인해주세요."
+            ) from exc
+        raise ExtractionError(
+            "단어를 생성하지 못했습니다. 잠시 후 다시 시도해주세요."
+        ) from exc
+
+    parsed = _parse_response(response)
+
+    cards: list[dict] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        term = _clean(item.get("term"))
+        definition = _clean(item.get("definition"))
+        if not term or not definition:
+            continue
+        cards.append(
+            {
+                "term": term,
+                "reading": _clean(item.get("reading")) or None,
+                "definition": definition,
+                "example": _clean(item.get("example")) or None,
+            }
+        )
+    return cards
+
+
 def _parse_response(response) -> list:
     """Gemini 응답에서 JSON 배열을 추출. parsed 우선, 실패 시 text JSON 파싱."""
     parsed = getattr(response, "parsed", None)

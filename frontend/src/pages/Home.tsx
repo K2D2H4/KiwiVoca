@@ -1,19 +1,19 @@
 // 홈 — 내 단어장 목록. 모바일 1열 / 데스크탑 2~3열 그리드.
 // 빈 상태는 KiwiBuddy + "첫 단어장 만들기" CTA, 로딩은 Skeleton 카드.
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { isAxiosError } from "axios";
 import {
-  Camera,
   CheckSquare,
   Compass,
-  GraduationCap,
   Layers,
   Plus,
   X,
 } from "lucide-react";
 import KiwiMark from "../components/KiwiMark";
 import LanguageSwitcher from "../components/LanguageSwitcher";
+import CreateSheet from "../components/layout/CreateSheet";
 import DeckCard from "../components/deck/DeckCard";
 import {
   Button,
@@ -37,11 +37,22 @@ export default function Home() {
   const { data: decks, isLoading, isError, refetch } = useDecks();
   const mergeDecks = useMergeDecks();
 
+  // 통합 만들기 시트
+  const [createOpen, setCreateOpen] = useState(false);
+
   // 병합 선택 모드 상태
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
   const [mergeSheetOpen, setMergeSheetOpen] = useState(false);
   const [mergeTitle, setMergeTitle] = useState("");
+
+  // 선택된 첫 덱의 kind 가 병합 가능한 종류를 고정(단어/문법 혼합 금지).
+  // 선택이 비면 잠금 해제.
+  const lockedKind = useMemo(() => {
+    if (!decks || selectedIds.length === 0) return null;
+    const first = decks.find((d) => d.id === selectedIds[0]);
+    return first?.kind ?? null;
+  }, [decks, selectedIds]);
 
   const toggleSelect = (deckId: string | number) =>
     setSelectedIds((prev) =>
@@ -68,8 +79,14 @@ export default function Home() {
       setMergeTitle("");
       toast.success(t("deck.mergedToast"));
       navigate(`/decks/${newDeck.id}`);
-    } catch {
-      toast.error(t("deck.mergeError"));
+    } catch (err) {
+      // 백엔드 400(다른 kind 혼합 등) 메시지를 그대로 노출, 없으면 일반 메시지
+      const detail =
+        isAxiosError(err) &&
+        typeof err.response?.data?.detail === "string"
+          ? err.response.data.detail
+          : null;
+      toast.error(detail ?? t("deck.mergeError"));
     }
   };
 
@@ -152,29 +169,14 @@ export default function Home() {
                     {t("deck.mergeEntry")}
                   </Button>
                 )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Camera size={16} />}
-                  onClick={() => navigate("/import")}
-                >
-                  {t("import.fromPhotoShort")}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<GraduationCap size={16} />}
-                  onClick={() => navigate("/grammar/new")}
-                >
-                  {t("grammar.addShort")}
-                </Button>
+                {/* 통합 만들기 진입 (단어/문법 × 직접/사진/AI) */}
                 <Button
                   variant="primary"
                   size="sm"
                   leftIcon={<Plus size={16} strokeWidth={2.6} />}
-                  onClick={() => navigate("/decks/new")}
+                  onClick={() => setCreateOpen(true)}
                 >
-                  {t("deck.new")}
+                  {t("create.title")}
                 </Button>
               </>
             )}
@@ -228,7 +230,7 @@ export default function Home() {
                   size="lg"
                   fullWidth
                   leftIcon={<Plus size={18} strokeWidth={2.6} />}
-                  onClick={() => navigate("/decks/new")}
+                  onClick={() => setCreateOpen(true)}
                 >
                   {t("deck.createFirst")}
                 </Button>
@@ -237,10 +239,17 @@ export default function Home() {
           </Card>
         )}
 
-        {/* 선택 모드 안내 배너 */}
+        {/* 선택 모드 안내 배너 — kind 잠금 시 같은 종류 안내 */}
         {selecting && hasDecks && (
           <div className="mb-4 rounded-2xl bg-kiwi-50 px-4 py-3 text-body-sm font-bold text-kiwi-800 ring-1 ring-kiwi-200">
-            {t("deck.mergeSelectHint")}
+            {lockedKind != null
+              ? t("deck.mergeSameKindHint", {
+                  kind:
+                    lockedKind === "grammar"
+                      ? t("deck.kindGrammar")
+                      : t("deck.kindVocab"),
+                })
+              : t("deck.mergeSelectHint")}
           </div>
         )}
 
@@ -258,6 +267,12 @@ export default function Home() {
                 deck={deck}
                 selectable={selecting}
                 selected={selectedIds.includes(deck.id)}
+                // 첫 선택의 kind 와 다르면 합칠 수 없어 비활성
+                disabled={
+                  selecting &&
+                  lockedKind != null &&
+                  deck.kind !== lockedKind
+                }
                 onToggleSelect={toggleSelect}
               />
             ))}
@@ -316,6 +331,9 @@ export default function Home() {
           </Button>
         </form>
       </Sheet>
+
+      {/* 통합 만들기 시트 */}
+      <CreateSheet open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

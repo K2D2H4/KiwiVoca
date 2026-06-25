@@ -51,6 +51,24 @@
     "stats": "Stats",
     "explore": "Explore"
   },
+  "create": {
+    "title": "Create",
+    "whatTitle": "What do you want to make?",
+    "whatHint": "Choose vocabulary or grammar.",
+    "vocabTitle": "Vocabulary",
+    "vocabDesc": "Collect words and meanings to memorize",
+    "grammarTitle": "Grammar",
+    "grammarDesc": "Organize grammar rules and examples",
+    "howTitle": "How do you want to make it?",
+    "howHint": "Pick a method.",
+    "directTitle": "Type it in",
+    "directVocabDesc": "Add words one by one yourself",
+    "directGrammarDesc": "Write grammar items yourself",
+    "photoTitle": "From a photo",
+    "photoDesc": "Snap or upload a photo to read it automatically",
+    "aiTitle": "AI generate",
+    "aiDesc": "Just give a topic and AI builds it"
+  },
   "deck": {
     "myDecks": "My decks",
     "listSubtitle": "Memorize one tasty bite at a time with your own decks.",
@@ -83,14 +101,15 @@
     "copiedToast": "Deck copied.",
     "copyError": "Couldn't copy the deck.",
     "mergeEntry": "Merge",
-    "mergeSelectHint": "Pick 2 or more decks to merge. Vocab and grammar can be mixed.",
+    "mergeSelectHint": "Pick 2 or more decks to merge. Only the same kind can be merged.",
     "mergeSelectedCount": "{{count}} selected",
     "mergeCta": "Merge {{count}}",
     "mergeSheetTitle": "Merge decks",
     "mergeSheetHint": "Combine cards from the {{count}} selected decks into a new deck.",
     "mergeConfirmCta": "Merge",
     "mergedToast": "Decks merged.",
-    "mergeError": "Couldn't merge the decks."
+    "mergeError": "Couldn't merge the decks.",
+    "mergeSameKindHint": "Only {{kind}} decks can be merged together."
   },
   "card": {
     "addTitle": "Add a card",
@@ -249,7 +268,15 @@
     "saveCta": "Save",
     "commitError": "Saving failed. Please try again.",
     "committed": "Imported {{count}} card(s)!",
-    "saveBarCount": "cards to save"
+    "saveBarCount": "cards to save",
+    "aiTitle": "Make a deck with AI",
+    "aiIntro": "Give a topic and AI will create words and meanings.",
+    "fieldTheme": "Topic",
+    "themePlaceholder": "e.g. travel, food, business",
+    "fieldLevelOptional": "Level (optional)",
+    "generateCta": "Generate words",
+    "generating": "Creating words…",
+    "generateError": "Word generation failed. Please try again."
   },
   "grammar": {
     "addTitle": "Add grammar",
@@ -332,7 +359,10 @@
       "fillBlankType": "Fill in the blank",
       "typeHere": "Type here…",
       "contextToggle": "Grammar",
-      "reviewList": "Review grammar"
+      "reviewList": "Review grammar",
+      "generating": "Building your questions…",
+      "generatingHint": "Hang tight — we're crafting fresh problems for you.",
+      "baseFormLabel": "Base form"
     }
   },
   "tts": {

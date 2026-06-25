@@ -101,7 +101,7 @@ export interface GrammarItem {
   progress: GrammarProgressInfo;
 }
 
-// ── 연습 세션 ────────────────────────────────────────────────
+// ── 연습 세션 (즉석 생성) ────────────────────────────────────
 // GET /api/grammar/filters?deck_ids=1,2 — 다단계 필터(레벨 → 카테고리) 계층
 export interface GrammarFilterCategory {
   category: string;
@@ -118,20 +118,36 @@ export interface GrammarFiltersResponse {
   levels: GrammarFilterLevel[];
 }
 
-// GET /api/grammar/practice 응답 항목 — 문제 + 문법 컨텍스트 + 진척
+// POST /api/grammar/practice 요청 — 즉석 생성(Gemini), 수초 소요
+export interface PracticePayload {
+  deck_ids: (string | number)[];
+  levels?: string[];
+  categories?: string[];
+  scope?: "all" | "unlearned";
+  limit?: number; // 0 = 전체
+  order?: "weak" | "random";
+}
+
+// POST /api/grammar/practice 응답 항목 — 문제 + 문법 컨텍스트 + 진척
+// 미저장(problem_id 없음). base_form: 빈칸의 기본형 힌트(예: "먹다").
 export interface PracticeProblem {
-  problem_id: number;
   item_id: number;
   kind: ProblemKind;
   prompt: string; // 빈칸 ___ 포함
   answer: string;
   options?: string[] | null; // choice 면 4지선다(정답 포함)
+  base_form: string; // 빈칸의 기본형 힌트
   explanation?: string | null; // 문제 해설
   point: string; // 문법 포인트
   item_explanation: string; // 문법 항목 설명
   level: string;
   category: string;
   progress: GrammarProgressInfo;
+}
+
+// POST /api/grammar/practice 응답 래퍼
+export interface PracticeResponse {
+  problems: PracticeProblem[];
 }
 
 // POST /api/grammar/answer 요청/응답

@@ -142,6 +142,11 @@ export default function StudyHub() {
             >
               {decks.map((deck) => {
                 const isSelected = selected.has(String(deck.id));
+                // 문법 덱은 grammar_count(문법 N개), 단어 덱은 card_count(카드 N개)
+                const isGrammar = deck.kind === "grammar";
+                const deckCount = isGrammar
+                  ? deck.grammar_count ?? 0
+                  : deck.card_count ?? 0;
                 return (
                   <motion.li key={deck.id} variants={staggerItem}>
                     <Card
@@ -172,15 +177,21 @@ export default function StudyHub() {
                             : "bg-kiwi-100 text-kiwi-700"
                         }`}
                       >
-                        <Layers size={22} strokeWidth={2.2} />
+                        {isGrammar ? (
+                          <GraduationCap size={22} strokeWidth={2.2} />
+                        ) : (
+                          <Layers size={22} strokeWidth={2.2} />
+                        )}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-body font-bold text-seed">
                           {deck.title}
                         </span>
                         <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <Badge tone="kiwi" size="sm">
-                            {t("deck.cardCount", { count: deck.card_count ?? 0 })}
+                          <Badge tone={isGrammar ? "neutral" : "kiwi"} size="sm">
+                            {isGrammar
+                              ? t("grammar.itemCount", { count: deckCount })
+                              : t("deck.cardCount", { count: deckCount })}
                           </Badge>
                           <Badge tone="outline" size="sm">
                             {langLabel(deck.lang_term)} → {langLabel(deck.lang_def)}

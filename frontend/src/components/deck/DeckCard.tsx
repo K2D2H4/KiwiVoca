@@ -1,7 +1,7 @@
 // 덱 카드 — 목록 그리드 항목. Card(interactive) + Badge(kind/언어쌍) + 카드수.
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Check, Layers } from "lucide-react";
+import { ArrowRight, Check, GraduationCap, Layers } from "lucide-react";
 import { Card, Badge } from "../ui";
 import { langLabel } from "../../lib/languages";
 import type { Deck } from "../../types/deck";
@@ -11,6 +11,8 @@ interface DeckCardProps {
   // 선택 모드 — 병합용. 제공 시 Link 대신 선택 토글 버튼으로 렌더.
   selectable?: boolean;
   selected?: boolean;
+  // 다른 종류(kind)라 합칠 수 없는 덱 — 흐리게 + 선택 불가
+  disabled?: boolean;
   onToggleSelect?: (id: string | number) => void;
 }
 
@@ -18,11 +20,13 @@ export default function DeckCard({
   deck,
   selectable,
   selected,
+  disabled,
   onToggleSelect,
 }: DeckCardProps) {
   const { t } = useTranslation();
   const isGrammar = deck.kind === "grammar";
-  const count = deck.card_count ?? 0;
+  // 문법 덱은 card_count=0, grammar_count 에 항목 수가 담김
+  const count = isGrammar ? deck.grammar_count ?? 0 : deck.card_count ?? 0;
 
   const inner = (
     <Card
@@ -79,10 +83,16 @@ export default function DeckCard({
           </p>
         )}
 
-        {/* 하단: 카드 수 */}
+        {/* 하단: 카드 수(단어) / 항목 수(문법) */}
         <div className="mt-auto flex items-center gap-1.5 pt-3.5 text-body-sm font-bold text-seed/45">
-          <Layers size={15} className="shrink-0 text-kiwi-500" />
-          {t("deck.cardCount", { count })}
+          {isGrammar ? (
+            <GraduationCap size={15} className="shrink-0 text-bark" />
+          ) : (
+            <Layers size={15} className="shrink-0 text-kiwi-500" />
+          )}
+          {isGrammar
+            ? t("grammar.itemCount", { count })
+            : t("deck.cardCount", { count })}
         </div>
       </>
     );
@@ -95,8 +105,13 @@ export default function DeckCard({
         type="button"
         role="checkbox"
         aria-checked={!!selected}
-        onClick={() => onToggleSelect?.(deck.id)}
-        className="group relative block w-full rounded-3xl text-left outline-none focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+        aria-disabled={disabled || undefined}
+        disabled={disabled}
+        onClick={() => !disabled && onToggleSelect?.(deck.id)}
+        className={[
+          "group relative block w-full rounded-3xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream",
+          disabled ? "cursor-not-allowed opacity-45 saturate-50" : "",
+        ].join(" ")}
       >
         {inner}
       </button>

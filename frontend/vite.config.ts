@@ -8,6 +8,8 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    // 터널/외부 도메인(예: trycloudflare.com)에서 접속 시 Vite 호스트 차단 방지 (로컬 dev 편의)
+    allowedHosts: true,
     hmr: {
       clientPort: 8080,
     },

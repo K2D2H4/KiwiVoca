@@ -1,8 +1,12 @@
 """문법 학습 Pydantic v2 스키마 (요청/응답).
 
-extract/generate: 후보(문법항목+연습문제) 리스트 반환 (자동 커밋 X)
-commit: 기존 deck_id 또는 새 덱 + 검수한 항목 배열 → 항목/문제 일괄 생성
-practice/answer/learned: 연습 출제 + 진척 갱신
+설계 변경(2026-06): 추출/생성은 문법 "항목"만 반환·저장한다(문제 미저장).
+연습문제는 저장하지 않고 POST /practice 에서 선택 항목으로부터 즉석 생성한다.
+
+extract/generate: 문법 항목 후보 리스트 반환 (자동 커밋 X)
+commit: 기존 deck_id 또는 새 덱 + 검수한 항목 배열 → 항목만 일괄 생성
+practice: 선택 항목 필터 → 연습문제 즉석 생성
+answer/learned: 항목 단위 진척 갱신
 """
 from datetime import datetime
 from typing import Literal
@@ -12,35 +16,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ----------------------------- 후보(검수용) -----------------------------
 
-class ProblemCandidate(BaseModel):
-    """연습문제 후보 1개 (검수/생성 결과). choice 면 options 필수."""
-
-    kind: Literal["choice", "typing"] = "choice"
-    prompt: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
-    options: list[str] | None = None
-    explanation: str | None = None
-
-    @model_validator(mode="after")
-    def _check_choice_options(self) -> "ProblemCandidate":
-        # choice 문제는 선택지(정답 포함)가 있어야 한다 (commit 시 가벼운 검증)
-        if self.kind == "choice":
-            if not self.options or self.answer not in self.options:
-                raise ValueError(
-                    "객관식 문제는 정답을 포함한 선택지(options)가 필요합니다."
-                )
-        return self
-
-
 class GrammarItemCandidate(BaseModel):
-    """문법 항목 후보 1개 (항목 + 연습문제 묶음)."""
+    """문법 항목 후보 1개 (항목만, 연습문제 없음)."""
 
     point: str = Field(min_length=1, max_length=500)
     explanation: str = Field(min_length=1)
     example: str | None = None
     level: str = Field(default="", max_length=50)
     category: str = Field(default="", max_length=100)
-    problems: list[ProblemCandidate] = Field(default_factory=list)
 
 
 class CandidatesResponse(BaseModel):
@@ -91,20 +74,6 @@ class GrammarCommitRequest(BaseModel):
 
 # ----------------------------- 조회 응답 -----------------------------
 
-class ProblemResponse(BaseModel):
-    """연습문제 응답."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    kind: str
-    prompt: str
-    answer: str
-    options: list[str] | None = None
-    explanation: str | None = None
-    position: int
-
-
 class GrammarProgressInfo(BaseModel):
     """문법 항목 진척 요약."""
 
@@ -116,7 +85,7 @@ class GrammarProgressInfo(BaseModel):
 
 
 class GrammarItemResponse(BaseModel):
-    """문법 항목 응답 (항목 + 연습문제 + 현재 사용자 진척)."""
+    """문법 항목 응답 (항목 + 현재 사용자 진척). 연습문제는 포함하지 않는다."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -128,7 +97,6 @@ class GrammarItemResponse(BaseModel):
     level: str
     category: str
     position: int
-    problems: list[ProblemResponse]
     progress: GrammarProgressInfo
 
 
@@ -162,19 +130,31 @@ class FiltersResponse(BaseModel):
     levels: list[LevelGroup]
 
 
-# ----------------------------- 연습 출제 -----------------------------
+# ----------------------------- 연습 출제 (즉석 생성) -----------------------------
+
+class PracticeRequest(BaseModel):
+    """연습 시작 요청 — 선택된 덱/필터로 항목을 고른 뒤 문제를 즉석 생성한다."""
+
+    deck_ids: list[int] = Field(min_length=1)
+    levels: list[str] | None = None
+    categories: list[str] | None = None
+    scope: Literal["all", "unlearned"] = "all"
+    limit: int = Field(default=0, ge=0, le=1000)  # 0=전체(항목 선택 상한)
+    order: Literal["weak", "random"] = "weak"
+
 
 class PracticeProblem(BaseModel):
-    """연습 출제 단위 — 문제 + 부모 항목 컨텍스트 + 항목 진척."""
+    """즉석 생성된 연습문제 단위 — 문제 + 부모 항목 컨텍스트 + 항목 진척.
 
-    model_config = ConfigDict(from_attributes=True)
+    저장하지 않으므로 problem_id 는 없다. item_id 로 진척을 갱신한다.
+    """
 
-    problem_id: int
     item_id: int
     kind: str
     prompt: str
     answer: str
     options: list[str] | None = None
+    base_form: str = ""  # 빈칸에 들어갈 표현의 기본형/원형
     explanation: str | None = None
     # 부모 항목 컨텍스트
     point: str
@@ -182,6 +162,12 @@ class PracticeProblem(BaseModel):
     level: str
     category: str
     progress: GrammarProgressInfo
+
+
+class PracticeResponse(BaseModel):
+    """연습 응답 — 즉석 생성된 문제 리스트 (비면 빈 배열)."""
+
+    problems: list[PracticeProblem]
 
 
 # ----------------------------- 채점 / 학습완료 -----------------------------

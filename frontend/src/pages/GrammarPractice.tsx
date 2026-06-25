@@ -1,7 +1,7 @@
 // 문법 연습 — 몰입형 풀스크린 세션. 셸 밖(StudySession처럼) 라우트.
 // 진입: 필터/범위/개수 미지정 시 옵션 시트 → 시작. 쿼리로 직접 진입도 지원.
 // 라우트: /grammar/practice?decks=1,2&levels=초급,중급&categories=시제&scope=all|unlearned&limit=0|N&order=weak|random
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -22,7 +22,7 @@ import { spring, questionVariants, shakeKeyframes, shakeTransition } from "../li
 import type { PracticeProblem } from "../types/grammar";
 
 interface Outcome {
-  problemId: number;
+  problemId: number; // 출제 순서 인덱스(고유 키 — problem_id 미저장)
   itemId: number;
   isCorrect: boolean;
 }
@@ -51,22 +51,60 @@ export default function GrammarPractice() {
   const configured = params.get("start") === "1";
 
   const filtersQuery = useGrammarFilters(deckIds);
-  const practice = usePractice({
+  const practice = usePractice();
+  const {
+    mutate: runPractice,
+    reset: resetPractice,
+    isPending,
+    isError,
+    isSuccess,
+    data: problemsData,
+  } = practice;
+
+  // 옵션 시트 — 미구성 진입 시 자동 오픈
+  const [sheetOpen, setSheetOpen] = useState(!configured);
+
+  // 구성되면 즉석 생성 호출(한 번). 옵션/덱이 바뀌면 다시 호출.
+  // POST이므로 명시 호출 — 같은 구성에 중복 호출 방지용 시그니처 추적.
+  const requestedSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (!configured || deckIds.length === 0) return;
+    const sig = JSON.stringify({
+      deckIds: [...deckIds].sort(),
+      levels: [...levels].sort(),
+      categories: [...categories].sort(),
+      scope,
+      limit,
+      order,
+    });
+    if (requestedSig.current === sig) return;
+    requestedSig.current = sig;
+    runPractice({
+      deckIds,
+      levels,
+      categories,
+      scope,
+      limit: Number.isFinite(limit) ? limit : 0,
+      order,
+    });
+  }, [
+    configured,
     deckIds,
     levels,
     categories,
     scope,
-    limit: Number.isFinite(limit) ? limit : 0,
+    limit,
     order,
-  });
-
-  // 옵션 시트 — 미구성 진입 시 자동 오픈
-  const [sheetOpen, setSheetOpen] = useState(!configured);
+    runPractice,
+  ]);
 
   const close = () => navigate("/study");
 
   const startWith = useCallback(
     (opts: GrammarPracticeOptions) => {
+      // 새 구성 → 이전 생성 결과 폐기하고 재요청 허용
+      requestedSig.current = null;
+      resetPractice();
       const next = new URLSearchParams(params);
       next.set("start", "1");
       if (opts.levels.length) next.set("levels", opts.levels.join(","));
@@ -79,7 +117,7 @@ export default function GrammarPractice() {
       setParams(next, { replace: true });
       setSheetOpen(false);
     },
-    [params, setParams]
+    [params, setParams, resetPractice]
   );
 
   // 덱 미지정 — 잘못된 진입
@@ -111,30 +149,65 @@ export default function GrammarPractice() {
     );
   }
 
-  // 구성됨 — 문제 로드 상태
-  if (practice.isLoading) {
-    return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4">
-        <KiwiMark size={72} className="animate-pop-bounce" />
-        <p className="text-sm font-bold text-seed/50">{t("common.loading")}</p>
-      </div>
-    );
+  // 구성됨 — 즉석 생성 로딩(Gemini, 수초)
+  if (isPending || (!isSuccess && !isError)) {
+    return <GeneratingScreen onCancel={close} />;
   }
-  if (practice.isError) {
+  if (isError) {
     return <CenteredNotice text={t("grammar.practice.loadError")} onBack={close} />;
   }
-  const problems = practice.data ?? [];
+  const problems = problemsData ?? [];
   if (problems.length === 0) {
     return (
       <CenteredNotice
         text={t("grammar.practice.emptyResult")}
-        onBack={() => navigate(0)}
+        onBack={() => {
+          // 다시 옵션을 고를 수 있게 초기 상태로
+          requestedSig.current = null;
+          resetPractice();
+          const next = new URLSearchParams(params);
+          next.delete("start");
+          setParams(next, { replace: true });
+          setSheetOpen(true);
+        }}
         backLabel={t("grammar.practice.changeFilter")}
       />
     );
   }
 
   return <PracticeRunner problems={problems} onClose={close} />;
+}
+
+// 즉석 생성 로딩 — Gemini가 문제를 만드는 동안. 100dvh, 키위 스피너.
+function GeneratingScreen({ onCancel }: { onCancel: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="bg-orchard flex min-h-[100dvh] flex-col items-center justify-center gap-5 px-6 text-center">
+      <div className="relative flex h-28 w-28 items-center justify-center">
+        {/* 회전하는 키위 링 */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 animate-spin rounded-full border-[3px] border-kiwi/15 border-t-kiwi [animation-duration:1.1s]"
+        />
+        <KiwiBuddy mood="happy" size={72} float />
+      </div>
+      <div>
+        <p className="text-body font-black text-seed">
+          {t("grammar.practice.generating")}
+        </p>
+        <p className="mt-1 text-caption font-bold text-seed/50">
+          {t("grammar.practice.generatingHint")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="min-h-[44px] rounded-full px-5 text-caption font-bold text-seed/45 outline-none transition active:scale-95 hover:text-seed/70"
+      >
+        {t("common.cancel")}
+      </button>
+    </div>
+  );
 }
 
 // ── 실제 진행 러너 (문제 집합 고정) ───────────────────────────
@@ -167,12 +240,12 @@ function PracticeRunner({
       if (ok) setScore((s) => s + 1);
       setOutcomes((o) => [
         ...o,
-        { problemId: problem.problem_id, itemId: problem.item_id, isCorrect: ok },
+        { problemId: index, itemId: problem.item_id, isCorrect: ok },
       ]);
       // 진척 기록(후속, 실패해도 흐름 진행)
       answerMut.mutate({ item_id: problem.item_id, is_correct: ok });
     },
-    [problem, play, answerMut]
+    [problem, index, play, answerMut]
   );
 
   const next = useCallback(() => {
@@ -260,7 +333,7 @@ function PracticeRunner({
         {/* 문제 카드 + 보기/입력 */}
         <AnimatePresence mode="wait">
           <motion.div
-            key={problem.problem_id}
+            key={index}
             variants={questionVariants}
             initial="enter"
             animate="center"
@@ -302,6 +375,20 @@ function PromptText({ prompt }: { prompt: string }) {
   );
 }
 
+// 기본형 힌트 칩 — 빈칸의 원형(예 "먹다")을 알려줘 빈칸을 풀 수 있게.
+function BaseFormHint({ baseForm }: { baseForm?: string | null }) {
+  const { t } = useTranslation();
+  if (!baseForm) return null;
+  return (
+    <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-bark/10 px-3 py-1.5 text-caption font-bold text-bark">
+      <span className="shrink-0 text-bark/60">
+        {t("grammar.practice.baseFormLabel")}
+      </span>
+      <span className="truncate font-black text-bark">{baseForm}</span>
+    </span>
+  );
+}
+
 // ── 객관식 ───────────────────────────────────────────────────
 function ChoiceProblem({
   problem,
@@ -336,6 +423,7 @@ function ChoiceProblem({
           {t("grammar.practice.fillBlank")}
         </span>
         <PromptText prompt={problem.prompt} />
+        <BaseFormHint baseForm={problem.base_form} />
       </div>
 
       <div className="mt-4 grid gap-2.5">
@@ -448,6 +536,7 @@ function TypingProblem({
           {t("grammar.practice.fillBlankType")}
         </span>
         <PromptText prompt={problem.prompt} />
+        <BaseFormHint baseForm={problem.base_form} />
       </div>
 
       <div className="mt-4">
@@ -559,10 +648,10 @@ function GrammarResult({
   const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
   const accCount = useCountUp(accuracy, 1.0, 0.35);
 
-  const byId = new Map(problems.map((p) => [p.problem_id, p]));
+  // problemId 는 출제 순서 인덱스 — queue(problems)에서 바로 조회
   const wrongProblems = outcomes
     .filter((o) => !o.isCorrect)
-    .map((o) => byId.get(o.problemId))
+    .map((o) => problems[o.problemId])
     .filter((p): p is PracticeProblem => Boolean(p));
 
   const tier = accuracy >= 90 ? "perfect" : accuracy >= 60 ? "good" : "keepGoing";
@@ -622,8 +711,8 @@ function GrammarResult({
               {t("grammar.practice.reviewList")}
             </p>
             <ul className="space-y-2">
-              {wrongProblems.map((p) => (
-                <li key={p.problem_id}>
+              {wrongProblems.map((p, i) => (
+                <li key={`${p.item_id}-${i}`}>
                   <Card
                     padding="none"
                     elevation="sm"

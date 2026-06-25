@@ -1,9 +1,18 @@
-// 사진으로 단어장 추가 — 3스텝: 업로드 → (Gemini 추출 로딩) → 검수/편집 → 커밋
+// 단어장 추가 — 사진 추출 또는 테마 AI 생성 → (Gemini 로딩) → 검수/편집 → 커밋.
+// 진입 시 ?method=photo|ai (통합 만들기 시트에서 전달, 기본 photo).
 // 모바일 우선: 풀폭 스텝, 카메라 업로드, 바텀 sticky CTA, 커밋은 바텀시트.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Camera, Check, Image as ImageIcon, Plus, Trash2, X } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Image as ImageIcon,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import PageHeader from "../components/layout/PageHeader";
 import KiwiBuddy from "../components/KiwiBuddy";
 import {
@@ -19,9 +28,9 @@ import {
   Sheet,
   useToast,
 } from "../components/ui";
-import { LANG_OPTIONS } from "../lib/languages";
+import { LANG_OPTIONS, getLastLangPair, saveLastLangPair } from "../lib/languages";
 import { useDecks } from "../hooks/useDecks";
-import { useExtract, useCommit } from "../hooks/useImport";
+import { useExtract, useGenerateVocab, useCommit } from "../hooks/useImport";
 import type { DeckKind } from "../types/deck";
 import type { CommitCard, CommitPayload, ExtractCandidate } from "../types/import";
 
@@ -37,6 +46,7 @@ let rowSeq = 0;
 const nextKey = () => `r${rowSeq++}`;
 
 type Step = "upload" | "review";
+type Method = "photo" | "ai";
 
 export default function ImportPhoto() {
   const { t } = useTranslation();
@@ -45,18 +55,35 @@ export default function ImportPhoto() {
   const [params] = useSearchParams();
 
   const presetDeck = params.get("deck") ?? "";
+  const method: Method = params.get("method") === "ai" ? "ai" : "photo";
 
   const [step, setStep] = useState<Step>("upload");
 
   // 스텝1: 파일 + 설정
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [langTerm, setLangTerm] = useState(params.get("lang_term") || "en");
-  const [langDef, setLangDef] = useState(params.get("lang_def") || "ko");
+  // URL 파라미터 우선, 없으면 마지막 사용 언어쌍 복원
+  const lastLang = getLastLangPair();
+  const [langTerm, setLangTerm] = useState(params.get("lang_term") || lastLang.term);
+  const [langDef, setLangDef] = useState(params.get("lang_def") || lastLang.def);
+  // 언어 변경 시 마지막 사용 언어쌍으로 기억
+  const updateLangTerm = (v: string) => {
+    setLangTerm(v);
+    saveLastLangPair(v, langDef);
+  };
+  const updateLangDef = (v: string) => {
+    setLangDef(v);
+    saveLastLangPair(langTerm, v);
+  };
   const [kind, setKind] = useState<DeckKind>(
     (params.get("kind") as DeckKind) || "vocab"
   );
   const [fileError, setFileError] = useState<string | null>(null);
+
+  // AI 생성 입력 (테마/레벨/개수)
+  const [theme, setTheme] = useState("");
+  const [level, setLevel] = useState("");
+  const [count, setCount] = useState(10);
 
   // 스텝2: 후보 행
   const [rows, setRows] = useState<DraftRow[]>([]);
@@ -70,6 +97,7 @@ export default function ImportPhoto() {
   const [existingDeckId, setExistingDeckId] = useState(presetDeck);
 
   const extract = useExtract();
+  const generate = useGenerateVocab();
   const commit = useCommit();
   const { data: decks } = useDecks();
 
@@ -109,27 +137,41 @@ export default function ImportPhoto() {
   const removeFile = (idx: number) =>
     setFiles((prev) => prev.filter((_, i) => i !== idx));
 
-  const onExtract = async () => {
-    if (files.length === 0) return;
+  // 사진 추출 또는 AI 생성 — 후보를 받아 검수 행으로 변환
+  const toRows = (candidates: ExtractCandidate[]) =>
+    candidates.map((c) => ({
+      _key: nextKey(),
+      term: c.term ?? "",
+      reading: c.reading ?? "",
+      definition: c.definition ?? "",
+      example: c.example ?? "",
+    }));
+
+  const onRun = async () => {
     try {
-      const res = await extract.mutateAsync({
-        files,
-        lang_term: langTerm,
-        lang_def: langDef,
-        kind,
-      });
-      setRows(
-        (res.candidates ?? []).map((c) => ({
-          _key: nextKey(),
-          term: c.term ?? "",
-          reading: c.reading ?? "",
-          definition: c.definition ?? "",
-          example: c.example ?? "",
-        }))
-      );
+      if (method === "ai") {
+        if (theme.trim().length === 0) return;
+        const res = await generate.mutateAsync({
+          lang_term: langTerm,
+          lang_def: langDef,
+          theme: theme.trim(),
+          level: level.trim() || undefined,
+          count,
+        });
+        setRows(toRows(res.candidates ?? []));
+      } else {
+        if (files.length === 0) return;
+        const res = await extract.mutateAsync({
+          files,
+          lang_term: langTerm,
+          lang_def: langDef,
+          kind,
+        });
+        setRows(toRows(res.candidates ?? []));
+      }
       setStep("review");
     } catch {
-      toast.error(t("import.extractError"));
+      toast.error(method === "ai" ? t("import.generateError") : t("import.extractError"));
     }
   };
 
@@ -189,15 +231,15 @@ export default function ImportPhoto() {
     }
   };
 
-  // ── 추출 로딩 ──────────────────────────────────────────────
-  if (extract.isPending) {
+  // ── 추출/생성 로딩 ─────────────────────────────────────────
+  if (extract.isPending || generate.isPending) {
     return (
       <div className="min-h-[100dvh]">
-        <PageHeader title={t("import.title")} />
+        <PageHeader title={method === "ai" ? t("import.aiTitle") : t("import.title")} />
         <div className="flex flex-col items-center px-6 pt-16 text-center">
           <KiwiBuddy mood="sleepy" size={104} float />
           <p className="mt-7 font-display text-lg font-bold text-seed">
-            {t("import.extracting")}
+            {method === "ai" ? t("import.generating") : t("import.extracting")}
           </p>
           <p className="mt-1.5 text-body-sm text-seed/55">
             {t("import.extractingHint")}
@@ -220,7 +262,7 @@ export default function ImportPhoto() {
   return (
     <div className="min-h-[100dvh]">
       <PageHeader
-        title={t("import.title")}
+        title={method === "ai" ? t("import.aiTitle") : t("import.title")}
         onBack={() => (step === "review" ? setStep("upload") : navigate(-1))}
       />
 
@@ -239,18 +281,25 @@ export default function ImportPhoto() {
       <div className="mx-auto max-w-screen-sm">
         {step === "upload" ? (
           <UploadStep
+            method={method}
             previews={previews}
             fileCount={files.length}
             fileError={fileError}
             langTerm={langTerm}
             langDef={langDef}
             kind={kind}
+            theme={theme}
+            level={level}
+            count={count}
             onPick={onPick}
             onRemove={removeFile}
-            onLangTerm={setLangTerm}
-            onLangDef={setLangDef}
+            onLangTerm={updateLangTerm}
+            onLangDef={updateLangDef}
             onKind={setKind}
-            onExtract={onExtract}
+            onTheme={setTheme}
+            onLevel={setLevel}
+            onCount={setCount}
+            onRun={onRun}
           />
         ) : (
           <ReviewStep
@@ -314,42 +363,251 @@ function StepDot({
   );
 }
 
-// ── 스텝 1: 업로드 ───────────────────────────────────────────
+// ── 스텝 1: 업로드(사진) / 테마 입력(AI) ────────────────────
 function UploadStep({
+  method,
   previews,
   fileCount,
   fileError,
   langTerm,
   langDef,
   kind,
+  theme,
+  level,
+  count,
   onPick,
   onRemove,
   onLangTerm,
   onLangDef,
   onKind,
-  onExtract,
+  onTheme,
+  onLevel,
+  onCount,
+  onRun,
 }: {
+  method: Method;
   previews: string[];
   fileCount: number;
   fileError: string | null;
   langTerm: string;
   langDef: string;
   kind: DeckKind;
+  theme: string;
+  level: string;
+  count: number;
   onPick: (f: FileList | null) => void;
   onRemove: (i: number) => void;
   onLangTerm: (v: string) => void;
   onLangDef: (v: string) => void;
   onKind: (k: DeckKind) => void;
-  onExtract: () => void;
+  onTheme: (v: string) => void;
+  onLevel: (v: string) => void;
+  onCount: (v: number) => void;
+  onRun: () => void;
 }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
+  const isAi = method === "ai";
+  const canRun = isAi ? theme.trim().length > 0 : fileCount > 0;
+
   return (
     <div className="space-y-5 px-5 pt-5">
-      <p className="text-body-sm text-seed/60">{t("import.uploadIntro")}</p>
+      <p className="text-body-sm text-seed/60">
+        {isAi ? t("import.aiIntro") : t("import.uploadIntro")}
+      </p>
 
+      {isAi ? (
+        <AiVocabInput
+          theme={theme}
+          level={level}
+          count={count}
+          onTheme={onTheme}
+          onLevel={onLevel}
+          onCount={onCount}
+        />
+      ) : (
+        <PhotoArea
+          inputRef={inputRef}
+          cameraRef={cameraRef}
+          previews={previews}
+          fileCount={fileCount}
+          fileError={fileError}
+          onPick={onPick}
+          onRemove={onRemove}
+        />
+      )}
+
+      {/* 학습 설정 — AI(테마)는 단어 전용이라 kind 토글 숨김 */}
+      <Card padding="sm">
+        <p className="mb-3 text-caption font-bold uppercase tracking-wide text-kiwi-700">
+          {t("import.settings")}
+        </p>
+        {!isAi && (
+          <div className="mb-3">
+            <SegmentedControl<DeckKind>
+              layoutId="import-kind"
+              ariaLabel={t("deck.fieldKind")}
+              value={kind}
+              onChange={onKind}
+              segments={[
+                { value: "vocab", label: t("deck.kindVocab") },
+                { value: "grammar", label: t("deck.kindGrammar") },
+              ]}
+            />
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2.5">
+          <Select
+            id="imp-lang-term"
+            label={t("deck.fieldLangTerm")}
+            value={langTerm}
+            onChange={(e) => onLangTerm(e.target.value)}
+          >
+            {LANG_OPTIONS.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            id="imp-lang-def"
+            label={t("deck.fieldLangDef")}
+            value={langDef}
+            onChange={(e) => onLangDef(e.target.value)}
+          >
+            {LANG_OPTIONS.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Card>
+
+      {/* 실행 CTA — sticky */}
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-raised pt-1 md:static md:bottom-auto">
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          leftIcon={isAi ? <Sparkles size={18} /> : undefined}
+          disabled={!canRun}
+          onClick={onRun}
+        >
+          {isAi
+            ? t("import.generateCta")
+            : fileCount === 0
+              ? t("import.extractCtaEmpty")
+              : t("import.extractCta", { count: fileCount })}
+        </Button>
+      </div>
+      <div className="h-2" />
+    </div>
+  );
+}
+
+// 테마 기반 단어 AI 입력 — 테마(필수) + 레벨(선택) + 개수
+function AiVocabInput({
+  theme,
+  level,
+  count,
+  onTheme,
+  onLevel,
+  onCount,
+}: {
+  theme: string;
+  level: string;
+  count: number;
+  onTheme: (v: string) => void;
+  onLevel: (v: string) => void;
+  onCount: (v: number) => void;
+}) {
+  const { t } = useTranslation();
+  const LEVEL_PRESETS = [
+    t("grammar.levelBeginner"),
+    t("grammar.levelIntermediate"),
+    t("grammar.levelAdvanced"),
+  ];
+  return (
+    <div className="space-y-4">
+      <TextField
+        label={t("import.fieldTheme")}
+        value={theme}
+        onChange={(e) => onTheme(e.target.value)}
+        placeholder={t("import.themePlaceholder")}
+        maxLength={80}
+        autoFocus
+      />
+
+      <div>
+        <TextField
+          label={t("import.fieldLevelOptional")}
+          value={level}
+          onChange={(e) => onLevel(e.target.value)}
+          placeholder={t("grammar.levelPlaceholder")}
+          maxLength={50}
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {LEVEL_PRESETS.map((lv) => (
+            <button
+              key={lv}
+              type="button"
+              onClick={() => onLevel(level === lv ? "" : lv)}
+              className={[
+                "min-h-[36px] rounded-full px-3.5 text-caption font-bold transition active:scale-95",
+                level === lv
+                  ? "bg-kiwi text-white shadow-kiwi-glow"
+                  : "bg-kiwi-50 text-kiwi-700 ring-1 ring-kiwi-200 hover:bg-kiwi-100",
+              ].join(" ")}
+            >
+              {lv}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-caption font-bold uppercase tracking-wide text-seed/50">
+          {t("grammar.fieldCount")}
+        </p>
+        <SegmentedControl<string>
+          layoutId="import-count"
+          ariaLabel={t("grammar.fieldCount")}
+          value={String(count)}
+          onChange={(v) => onCount(Number(v))}
+          segments={[5, 10, 15, 20].map((n) => ({
+            value: String(n),
+            label: String(n),
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 사진 업로드 영역 — 드롭존/썸네일 + 카메라/갤러리
+function PhotoArea({
+  inputRef,
+  cameraRef,
+  previews,
+  fileCount,
+  fileError,
+  onPick,
+  onRemove,
+}: {
+  inputRef: React.RefObject<HTMLInputElement>;
+  cameraRef: React.RefObject<HTMLInputElement>;
+  previews: string[];
+  fileCount: number;
+  fileError: string | null;
+  onPick: (f: FileList | null) => void;
+  onRemove: (i: number) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
       {/* 드롭존 / 썸네일 그리드 */}
       <div className="rounded-3xl border-2 border-dashed border-bark/30 bg-surface/60 p-4">
         {previews.length === 0 ? (
@@ -455,68 +713,7 @@ function UploadStep({
           {fileError}
         </p>
       )}
-
-      {/* 학습 설정 */}
-      <Card padding="sm">
-        <p className="mb-3 text-caption font-bold uppercase tracking-wide text-kiwi-700">
-          {t("import.settings")}
-        </p>
-        <div className="mb-3">
-          <SegmentedControl<DeckKind>
-            layoutId="import-kind"
-            ariaLabel={t("deck.fieldKind")}
-            value={kind}
-            onChange={onKind}
-            segments={[
-              { value: "vocab", label: t("deck.kindVocab") },
-              { value: "grammar", label: t("deck.kindGrammar") },
-            ]}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <Select
-            id="imp-lang-term"
-            label={t("deck.fieldLangTerm")}
-            value={langTerm}
-            onChange={(e) => onLangTerm(e.target.value)}
-          >
-            {LANG_OPTIONS.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            id="imp-lang-def"
-            label={t("deck.fieldLangDef")}
-            value={langDef}
-            onChange={(e) => onLangDef(e.target.value)}
-          >
-            {LANG_OPTIONS.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </Card>
-
-      {/* 추출 CTA — sticky */}
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-raised pt-1 md:static md:bottom-auto">
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          disabled={fileCount === 0}
-          onClick={onExtract}
-        >
-          {fileCount === 0
-            ? t("import.extractCtaEmpty")
-            : t("import.extractCta", { count: fileCount })}
-        </Button>
-      </div>
-      <div className="h-2" />
-    </div>
+    </>
   );
 }
 

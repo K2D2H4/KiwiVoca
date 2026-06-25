@@ -4,7 +4,7 @@
 - POST /generate: 텍스트 프롬프트 → Gemini 생성 (검수용, 미저장)
 - POST /commit: 검수한 항목 배열 → 기존/새 grammar 덱에 일괄 저장
 - GET /filters: 다단계 필터(레벨→카테고리 계층 + 개수)
-- GET /practice: 연습할 문제들(문제 + 부모 항목 컨텍스트 + 진척)
+- POST /practice: 선택 항목으로부터 연습문제를 즉석 생성(미저장)
 - POST /answer: 항목 진척 라이트너 박스 upsert
 - POST /learned: 항목 학습완료 토글
 
@@ -16,13 +16,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.database import get_db
 from app.models.deck import Deck
 from app.models.grammar_item import GrammarItem
-from app.models.grammar_problem import GrammarProblem
 from app.models.grammar_progress import GrammarProgress
 from app.models.user import User
 from app.schemas.deck import DeckResponse
@@ -36,19 +35,20 @@ from app.schemas.grammar import (
     GrammarCommitRequest,
     GrammarCommitResponse,
     GrammarItemCandidate,
-    GrammarItemResponse,
     GrammarLearnedRequest,
     GrammarLearnedResponse,
     GrammarProgressInfo,
     LevelGroup,
     PracticeProblem,
-    ProblemResponse,
+    PracticeRequest,
+    PracticeResponse,
 )
 from app.services.grammar_service import (
     SUPPORTED_IMAGE_MIME,
     GrammarError,
     extract_grammar_from_images,
     generate_grammar,
+    generate_problems_for_items,
 )
 from app.utils.dependencies import get_current_user
 
@@ -259,6 +259,7 @@ def commit(
     )
     base = 0 if current_max is None else current_max + 1
 
+    # 항목만 저장한다. 연습문제는 저장하지 않고 연습 시작 때 즉석 생성한다.
     for offset, item in enumerate(payload.items):
         gi = GrammarItem(
             deck_id=deck.id,
@@ -269,17 +270,6 @@ def commit(
             category=item.category,
             position=base + offset,
         )
-        for p_offset, p in enumerate(item.problems):
-            gi.problems.append(
-                GrammarProblem(
-                    kind=p.kind,
-                    prompt=p.prompt,
-                    answer=p.answer,
-                    options=p.options,
-                    explanation=p.explanation,
-                    position=p_offset,
-                )
-            )
         db.add(gi)
 
     db.commit()
@@ -291,9 +281,9 @@ def commit(
         .scalar()
         or 0
     )
-    card_count = item_count  # grammar 덱의 card_count 는 문법 항목 수로 노출
     deck_resp = DeckResponse.model_validate(deck)
-    deck_resp.card_count = card_count
+    deck_resp.card_count = 0  # grammar 덱은 단어 카드 0
+    deck_resp.grammar_count = item_count  # 문법 항목 수는 grammar_count 로 노출
 
     return GrammarCommitResponse(deck=deck_resp, item_count=len(payload.items))
 
@@ -338,34 +328,27 @@ def get_filters(
     return FiltersResponse(levels=result)
 
 
-# ----------------------------- 연습 출제 -----------------------------
+# ----------------------------- 연습 출제 (즉석 생성) -----------------------------
 
-@router.get("/practice", response_model=list[PracticeProblem])
-def get_practice(
-    deck_ids: str = Query(..., description="콤마 구분 덱 ID"),
-    levels: str | None = Query(default=None, description="콤마 구분 레벨 필터"),
-    categories: str | None = Query(default=None, description="콤마 구분 카테고리 필터"),
-    scope: str = Query(default="all", pattern="^(all|unlearned)$"),
-    limit: int = Query(default=0, ge=0, le=1000),
-    order: str = Query(default="weak", pattern="^(weak|random)$"),
+@router.post("/practice", response_model=PracticeResponse)
+async def start_practice(
+    payload: PracticeRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[PracticeProblem]:
-    """연습할 문제들 (각 문제 + 부모 항목 컨텍스트 + 항목 진척).
+) -> PracticeResponse:
+    """선택된 덱/필터로 문법 항목을 고른 뒤, 그 항목들로부터 연습문제를 즉석 생성한다.
 
-    levels/categories 콤마 다중 필터. scope=unlearned 면 학습완료 항목 제외.
-    order=weak(약한 항목 우선)|random. limit=0 전체.
+    문제는 저장하지 않는다. levels/categories 다중 필터, scope=unlearned 면 학습완료 제외,
+    order=weak(약한 항목 우선)|random, limit=0 전체. 항목 0개면 빈 problems.
+    Gemini 실패는 502(한국어) 로 매핑하되, graceful 하게 동작한다.
     """
-    ids = _parse_deck_ids(deck_ids)
-    _verify_owned_decks(db, current_user, ids)
-    unique_ids = list(set(ids))
+    _verify_owned_decks(db, current_user, payload.deck_ids)
+    unique_ids = list(set(payload.deck_ids))
 
-    level_list = [s.strip() for s in levels.split(",")] if levels else []
-    level_list = [s for s in level_list if s]
-    cat_list = [s.strip() for s in categories.split(",")] if categories else []
-    cat_list = [s for s in cat_list if s]
+    level_list = [s for s in (payload.levels or []) if s]
+    cat_list = [s for s in (payload.categories or []) if s]
 
-    # 항목 + 현재 사용자 진척 LEFT JOIN
+    # 항목 + 현재 사용자 진척 LEFT JOIN (연습문제는 더 이상 저장하지 않으므로 로드 안 함)
     stmt = (
         select(GrammarItem, GrammarProgress)
         .outerjoin(
@@ -374,18 +357,17 @@ def get_practice(
             & (GrammarProgress.user_id == current_user.id),
         )
         .where(GrammarItem.deck_id.in_(unique_ids))
-        .options(selectinload(GrammarItem.problems))
     )
     if level_list:
         stmt = stmt.where(GrammarItem.level.in_(level_list))
     if cat_list:
         stmt = stmt.where(GrammarItem.category.in_(cat_list))
-    if scope == "unlearned":
+    if payload.scope == "unlearned":
         stmt = stmt.where(
             func.coalesce(GrammarProgress.is_learned, False).is_(False)
         )
 
-    if order == "random":
+    if payload.order == "random":
         stmt = stmt.order_by(func.random())
     else:
         box_value = func.coalesce(GrammarProgress.box, _BOX_MIN)
@@ -395,33 +377,81 @@ def get_practice(
             GrammarItem.position.asc(),
             GrammarItem.id.asc(),
         )
+    if payload.limit > 0:
+        stmt = stmt.limit(payload.limit)
 
     rows = db.execute(stmt).all()
+    if not rows:
+        # 선택된 항목이 없으면 Gemini 호출 없이 빈 problems
+        return PracticeResponse(problems=[])
 
-    # 항목 단위 정렬을 유지하며 그 안의 문제들을 평탄화해 출제
-    result: list[PracticeProblem] = []
+    # Gemini 즉석 생성에 넘길 항목 dict + 컨텍스트(진척/항목정보) 매핑
+    items_for_gen: list[dict] = []
+    context_by_id: dict[int, dict] = {}
+    lang_term = "en"
+    lang_def = "ko"
     for item, progress in rows:
-        info = _progress_info(progress)
-        for p in item.problems:
-            result.append(
-                PracticeProblem(
-                    problem_id=p.id,
-                    item_id=item.id,
-                    kind=p.kind,
-                    prompt=p.prompt,
-                    answer=p.answer,
-                    options=p.options,
-                    explanation=p.explanation,
-                    point=item.point,
-                    item_explanation=item.explanation,
-                    level=item.level,
-                    category=item.category,
-                    progress=info,
-                )
+        items_for_gen.append(
+            {
+                "id": item.id,
+                "point": item.point,
+                "explanation": item.explanation,
+                "example": item.example,
+                "level": item.level,
+                "category": item.category,
+            }
+        )
+        context_by_id[item.id] = {
+            "point": item.point,
+            "item_explanation": item.explanation,
+            "level": item.level,
+            "category": item.category,
+            "progress": _progress_info(progress),
+        }
+
+    # 덱 언어는 첫 덱 기준(설명 언어 힌트용)
+    first_deck = (
+        db.query(Deck.lang_term, Deck.lang_def)
+        .filter(Deck.id.in_(unique_ids))
+        .first()
+    )
+    if first_deck is not None:
+        lang_term, lang_def = first_deck[0], first_deck[1]
+
+    try:
+        problems = await run_in_threadpool(
+            generate_problems_for_items,
+            items=items_for_gen,
+            lang_term=lang_term,
+            lang_def=lang_def,
+        )
+    except GrammarError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message
+        ) from exc
+
+    result: list[PracticeProblem] = []
+    for p in problems:
+        ctx = context_by_id.get(p["item_id"])
+        if ctx is None:
+            continue
+        result.append(
+            PracticeProblem(
+                item_id=p["item_id"],
+                kind=p["kind"],
+                prompt=p["prompt"],
+                answer=p["answer"],
+                options=p["options"],
+                base_form=p["base_form"],
+                explanation=p["explanation"],
+                point=ctx["point"],
+                item_explanation=ctx["item_explanation"],
+                level=ctx["level"],
+                category=ctx["category"],
+                progress=ctx["progress"],
             )
-            if limit > 0 and len(result) >= limit:
-                return result
-    return result
+        )
+    return PracticeResponse(problems=result)
 
 
 # ----------------------------- 채점 / 학습완료 -----------------------------

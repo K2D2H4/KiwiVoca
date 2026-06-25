@@ -1,12 +1,12 @@
-// 문법 추가 — 방식 선택(사진/AI) → 입력 → (Gemini 추출/생성 로딩) → 검수/편집 → 커밋
-// 모바일 우선: 풀폭 스텝, 카메라 업로드, 바텀 sticky 저장 바, 커밋은 바텀시트(단어 import와 동일 패턴).
+// 문법 만들기 — 방식(직접/사진/AI) → 입력 → (Gemini 추출/생성) → 항목 검수/편집 → 커밋.
+// 연습문제는 연습 시 즉석 생성되므로 여기서는 "항목"(point/explanation/example/level/category)만 다룬다.
+// 진입 시 ?method= 로 방식 결정(통합 만들기 시트에서 전달). direct 면 빈 항목부터 바로 검수.
+// 모바일 우선: 풀폭 스텝, 카메라 업로드, 바텀 sticky 저장 바, 커밋은 바텀시트.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Camera,
-  Check,
-  ChevronLeft,
   Image as ImageIcon,
   Plus,
   Sparkles,
@@ -28,7 +28,7 @@ import {
   Sheet,
   useToast,
 } from "../components/ui";
-import { LANG_OPTIONS } from "../lib/languages";
+import { LANG_OPTIONS, getLastLangPair, saveLastLangPair } from "../lib/languages";
 import { useDecks } from "../hooks/useDecks";
 import {
   useExtractGrammar,
@@ -38,29 +38,29 @@ import {
 import type {
   GrammarCommitPayload,
   GrammarItemCandidate,
-  ProblemCandidate,
-  ProblemKind,
 } from "../types/grammar";
 
 const MAX_FILES = 8;
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB / 장
 
-// 항목/문제에 안정적인 key 부여 (드래그 없는 리스트 재렌더 안정성)
+// 항목에 안정적인 key 부여 (리스트 재렌더 안정성)
 let seq = 0;
 const nextKey = () => `g${seq++}`;
 
-interface DraftProblem extends ProblemCandidate {
+// 검수 단계 드래프트 — 항목만(연습문제 없음)
+interface DraftItem {
   _key: string;
-}
-interface DraftItem extends Omit<GrammarItemCandidate, "problems"> {
-  _key: string;
-  problems: DraftProblem[];
+  point: string;
+  explanation: string;
+  example: string;
+  level: string;
+  category: string;
 }
 
-type Method = "photo" | "ai";
-type Step = "choose" | "input" | "review";
+type Method = "direct" | "photo" | "ai";
+type Step = "input" | "review";
 
-// 후보 → 드래프트(키 부여)
+// 후보 → 드래프트(키 부여). 백엔드가 problems 없이 항목만 반환.
 const toDraft = (c: GrammarItemCandidate): DraftItem => ({
   _key: nextKey(),
   point: c.point ?? "",
@@ -68,14 +68,15 @@ const toDraft = (c: GrammarItemCandidate): DraftItem => ({
   example: c.example ?? "",
   level: c.level ?? "",
   category: c.category ?? "",
-  problems: (c.problems ?? []).map((p) => ({
-    _key: nextKey(),
-    kind: p.kind ?? "choice",
-    prompt: p.prompt ?? "",
-    answer: p.answer ?? "",
-    options: p.options ?? null,
-    explanation: p.explanation ?? "",
-  })),
+});
+
+const emptyItem = (): DraftItem => ({
+  _key: nextKey(),
+  point: "",
+  explanation: "",
+  example: "",
+  level: "",
+  category: "",
 });
 
 export default function GrammarCreate() {
@@ -85,15 +86,27 @@ export default function GrammarCreate() {
   const [params] = useSearchParams();
 
   const presetDeck = params.get("deck") ?? "";
+  const method: Method = ((): Method => {
+    const m = params.get("method");
+    return m === "photo" || m === "direct" || m === "ai" ? m : "ai";
+  })();
 
-  const [method, setMethod] = useState<Method>(
-    (params.get("method") as Method) || "ai"
-  );
-  const [step, setStep] = useState<Step>("choose");
+  // 직접 입력은 입력 스텝 없이 빈 항목으로 바로 검수
+  const [step, setStep] = useState<Step>(method === "direct" ? "review" : "input");
 
-  // 공통 언어 설정
-  const [langTerm, setLangTerm] = useState(params.get("lang_term") || "en");
-  const [langDef, setLangDef] = useState(params.get("lang_def") || "ko");
+  // 공통 언어 설정 — URL 파라미터 우선, 없으면 마지막 사용 언어쌍 복원
+  const lastLang = getLastLangPair();
+  const [langTerm, setLangTerm] = useState(params.get("lang_term") || lastLang.term);
+  const [langDef, setLangDef] = useState(params.get("lang_def") || lastLang.def);
+  // 언어 변경 시 마지막 사용 언어쌍으로 기억
+  const updateLangTerm = (v: string) => {
+    setLangTerm(v);
+    saveLastLangPair(v, langDef);
+  };
+  const updateLangDef = (v: string) => {
+    setLangDef(v);
+    saveLastLangPair(langTerm, v);
+  };
 
   // 사진 입력
   const [files, setFiles] = useState<File[]>([]);
@@ -105,8 +118,10 @@ export default function GrammarCreate() {
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(5);
 
-  // 검수 항목
-  const [items, setItems] = useState<DraftItem[]>([]);
+  // 검수 항목 — 직접 입력이면 빈 항목 하나로 시작
+  const [items, setItems] = useState<DraftItem[]>(
+    method === "direct" ? [emptyItem()] : []
+  );
 
   // 커밋 시트
   const [commitOpen, setCommitOpen] = useState(false);
@@ -177,96 +192,38 @@ export default function GrammarCreate() {
               topic: topic.trim() || undefined,
               count,
             });
-      setItems((res.candidates ?? []).map(toDraft));
+      const drafts = (res.candidates ?? []).map(toDraft);
+      // 결과가 비면 빈 항목 하나로 검수 진입 (직접 보완 가능)
+      setItems(drafts.length > 0 ? drafts : [emptyItem()]);
       setStep("review");
     } catch {
       toast.error(
-        method === "photo" ? t("import.extractError") : t("grammar.generateError")
+        method === "photo"
+          ? t("import.extractError")
+          : t("grammar.generateError")
       );
     }
   };
 
-  // ── 항목/문제 편집 헬퍼 ──────────────────────────────────────
+  // ── 항목 편집 헬퍼 ──────────────────────────────────────────
   const patchItem = (key: string, patch: Partial<DraftItem>) =>
-    setItems((prev) => prev.map((it) => (it._key === key ? { ...it, ...patch } : it)));
+    setItems((prev) =>
+      prev.map((it) => (it._key === key ? { ...it, ...patch } : it))
+    );
   const removeItem = (key: string) =>
     setItems((prev) => prev.filter((it) => it._key !== key));
-  const addItem = () =>
-    setItems((prev) => [
-      ...prev,
-      {
-        _key: nextKey(),
-        point: "",
-        explanation: "",
-        example: "",
-        level: "",
-        category: "",
-        problems: [],
-      },
-    ]);
+  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
 
-  const patchProblem = (
-    itemKey: string,
-    probKey: string,
-    patch: Partial<DraftProblem>
-  ) =>
-    setItems((prev) =>
-      prev.map((it) =>
-        it._key === itemKey
-          ? {
-              ...it,
-              problems: it.problems.map((p) =>
-                p._key === probKey ? { ...p, ...patch } : p
-              ),
-            }
-          : it
-      )
-    );
-  const removeProblem = (itemKey: string, probKey: string) =>
-    setItems((prev) =>
-      prev.map((it) =>
-        it._key === itemKey
-          ? { ...it, problems: it.problems.filter((p) => p._key !== probKey) }
-          : it
-      )
-    );
-  const addProblem = (itemKey: string) =>
-    setItems((prev) =>
-      prev.map((it) =>
-        it._key === itemKey
-          ? {
-              ...it,
-              problems: [
-                ...it.problems,
-                {
-                  _key: nextKey(),
-                  kind: "choice",
-                  prompt: "",
-                  answer: "",
-                  options: ["", ""],
-                  explanation: "",
-                },
-              ],
-            }
-          : it
-      )
-    );
-
-  // 커밋 가능한 항목/문제 정규화 (백엔드 검증과 일치)
+  // 커밋 가능한 항목 정규화 (백엔드 검증과 일치 — point/explanation 필수)
   const validItems: GrammarItemCandidate[] = items
-    .map((it) => {
-      const problems: ProblemCandidate[] = it.problems
-        .map((p) => normalizeProblem(p))
-        .filter((p): p is ProblemCandidate => p !== null);
-      return {
-        point: it.point.trim(),
-        explanation: it.explanation.trim(),
-        example: it.example?.trim() || undefined,
-        level: it.level.trim(),
-        category: it.category.trim(),
-        problems,
-      };
-    })
+    .map((it) => ({
+      point: it.point.trim(),
+      explanation: it.explanation.trim(),
+      example: it.example.trim() || undefined,
+      level: it.level.trim(),
+      category: it.category.trim(),
+      problems: [], // 연습문제는 연습 시 생성 — 커밋엔 빈 배열
+    }))
     .filter((it) => it.point && it.explanation);
 
   const canCommit =
@@ -279,7 +236,11 @@ export default function GrammarCreate() {
     const payload: GrammarCommitPayload =
       target === "new"
         ? {
-            new_deck: { title: newTitle.trim(), lang_term: langTerm, lang_def: langDef },
+            new_deck: {
+              title: newTitle.trim(),
+              lang_term: langTerm,
+              lang_def: langDef,
+            },
             items: validItems,
           }
         : { deck_id: existingDeckId, items: validItems };
@@ -320,8 +281,8 @@ export default function GrammarCreate() {
   }
 
   const onBack = () => {
-    if (step === "review") setStep("input");
-    else if (step === "input") setStep("choose");
+    // 직접 입력은 입력 스텝이 없으므로 검수에서 바로 뒤로
+    if (step === "review" && method !== "direct") setStep("input");
     else navigate(-1);
   };
 
@@ -329,33 +290,14 @@ export default function GrammarCreate() {
     <div className="min-h-[100dvh]">
       <PageHeader title={t("grammar.addTitle")} onBack={onBack} />
 
-      {/* 스텝 점 진행바 — 방식/입력/검수 */}
-      <div className="mx-auto flex max-w-screen-sm items-center justify-center gap-2 px-5 pt-4">
-        <StepDot active={step === "choose"} done={step !== "choose"} n={1} />
-        <StepLine on={step !== "choose"} />
-        <StepDot active={step === "input"} done={step === "review"} n={2} />
-        <StepLine on={step === "review"} />
-        <StepDot active={step === "review"} done={false} n={3} />
-      </div>
-
       <div className="mx-auto max-w-screen-sm">
-        {step === "choose" && (
-          <ChooseStep
-            method={method}
-            onPick={(m) => {
-              setMethod(m);
-              setStep("input");
-            }}
-          />
-        )}
-
         {step === "input" && (
           <InputStep
-            method={method}
+            method={method === "direct" ? "ai" : method}
             langTerm={langTerm}
             langDef={langDef}
-            onLangTerm={setLangTerm}
-            onLangDef={setLangDef}
+            onLangTerm={updateLangTerm}
+            onLangDef={updateLangDef}
             // photo
             previews={previews}
             fileCount={files.length}
@@ -381,9 +323,6 @@ export default function GrammarCreate() {
             onPatchItem={patchItem}
             onRemoveItem={removeItem}
             onAddItem={addItem}
-            onPatchProblem={patchProblem}
-            onRemoveProblem={removeProblem}
-            onAddProblem={addProblem}
             onContinue={() => setCommitOpen(true)}
           />
         )}
@@ -409,118 +348,9 @@ export default function GrammarCreate() {
   );
 }
 
-// choice 면 빈 옵션 제거 + 정답 포함 보장, 그 외엔 그대로. 미완성이면 null(커밋 제외)
-function normalizeProblem(p: DraftProblem): ProblemCandidate | null {
-  const prompt = p.prompt.trim();
-  const answer = p.answer.trim();
-  if (!prompt || !answer) return null;
-  const explanation = p.explanation?.trim() || undefined;
-  if (p.kind === "typing") {
-    return { kind: "typing", prompt, answer, options: null, explanation };
-  }
-  // choice: 빈 옵션 제거, 정답이 빠졌으면 추가
-  const opts = (p.options ?? []).map((o) => o.trim()).filter(Boolean);
-  if (!opts.includes(answer)) opts.push(answer);
-  if (opts.length < 2) return null; // 최소 2지선다
-  return { kind: "choice", prompt, answer, options: opts, explanation };
-}
-
-// ── 스텝 점/선 ──────────────────────────────────────────────
-function StepDot({ active, done, n }: { active: boolean; done: boolean; n: number }) {
-  return (
-    <span
-      className={[
-        "flex h-7 w-7 items-center justify-center rounded-full text-caption font-bold transition",
-        active
-          ? "bg-kiwi text-white shadow-kiwi-glow"
-          : done
-            ? "bg-kiwi-100 text-kiwi-700"
-            : "bg-ink-100 text-seed/40",
-      ].join(" ")}
-    >
-      {done ? <Check size={15} strokeWidth={3} /> : n}
-    </span>
-  );
-}
-function StepLine({ on }: { on: boolean }) {
-  return (
-    <span
-      className={[
-        "h-0.5 w-8 rounded-full transition-colors",
-        on ? "bg-kiwi" : "bg-ink-200",
-      ].join(" ")}
-    />
-  );
-}
-
-// ── 스텝 1: 방식 선택 ───────────────────────────────────────
-function ChooseStep({
-  method,
-  onPick,
-}: {
-  method: Method;
-  onPick: (m: Method) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-3 px-5 pt-6">
-      <p className="text-body-sm text-seed/60">{t("grammar.chooseIntro")}</p>
-      <MethodCard
-        icon={<Camera size={26} />}
-        title={t("grammar.methodPhoto")}
-        desc={t("grammar.methodPhotoDesc")}
-        highlighted={method === "photo"}
-        onClick={() => onPick("photo")}
-      />
-      <MethodCard
-        icon={<Sparkles size={26} />}
-        title={t("grammar.methodAi")}
-        desc={t("grammar.methodAiDesc")}
-        highlighted={method === "ai"}
-        onClick={() => onPick("ai")}
-      />
-    </div>
-  );
-}
-
-function MethodCard({
-  icon,
-  title,
-  desc,
-  highlighted,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-  highlighted?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "flex w-full items-center gap-4 rounded-3xl bg-surface p-4 text-left shadow-soft outline-none transition active:scale-[0.99]",
-        "focus-visible:ring-2 focus-visible:ring-kiwi-400",
-        highlighted ? "ring-2 ring-kiwi-300" : "ring-1 ring-border hover:ring-kiwi-300",
-      ].join(" ")}
-    >
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-kiwi-100 text-kiwi-700">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-display text-body font-bold text-seed">{title}</span>
-        <span className="mt-0.5 block text-body-sm text-seed/55">{desc}</span>
-      </span>
-      <ChevronLeft size={20} className="shrink-0 rotate-180 text-seed/30" />
-    </button>
-  );
-}
-
-// ── 스텝 2: 입력 (사진 / AI) ────────────────────────────────
+// ── 스텝 1: 입력 (사진 / AI) ────────────────────────────────
 function InputStep(props: {
-  method: Method;
+  method: "photo" | "ai";
   langTerm: string;
   langDef: string;
   onLangTerm: (v: string) => void;
@@ -559,8 +389,7 @@ function InputStep(props: {
     onRun,
   } = props;
 
-  const canRun =
-    method === "photo" ? fileCount > 0 : level.trim().length > 0;
+  const canRun = method === "photo" ? fileCount > 0 : level.trim().length > 0;
 
   return (
     <div className="space-y-5 px-5 pt-5">
@@ -846,16 +675,13 @@ function AiInput({
   );
 }
 
-// ── 스텝 3: 검수 ────────────────────────────────────────────
+// ── 스텝 2: 검수 (항목만) ────────────────────────────────────
 function ReviewStep({
   items,
   validCount,
   onPatchItem,
   onRemoveItem,
   onAddItem,
-  onPatchProblem,
-  onRemoveProblem,
-  onAddProblem,
   onContinue,
 }: {
   items: DraftItem[];
@@ -863,9 +689,6 @@ function ReviewStep({
   onPatchItem: (key: string, patch: Partial<DraftItem>) => void;
   onRemoveItem: (key: string) => void;
   onAddItem: () => void;
-  onPatchProblem: (itemKey: string, probKey: string, patch: Partial<DraftProblem>) => void;
-  onRemoveProblem: (itemKey: string, probKey: string) => void;
-  onAddProblem: (itemKey: string) => void;
   onContinue: () => void;
 }) {
   const { t } = useTranslation();
@@ -908,9 +731,6 @@ function ReviewStep({
             index={i}
             onPatch={onPatchItem}
             onRemove={onRemoveItem}
-            onPatchProblem={onPatchProblem}
-            onRemoveProblem={onRemoveProblem}
-            onAddProblem={onAddProblem}
           />
         ))}
       </ul>
@@ -955,23 +775,17 @@ function ReviewStep({
   );
 }
 
-// 문법 항목 편집 카드 — point/explanation/example/level/category + 문제들
+// 문법 항목 편집 카드 — point/explanation/example/level/category (연습문제 없음)
 function ItemEditor({
   item,
   index,
   onPatch,
   onRemove,
-  onPatchProblem,
-  onRemoveProblem,
-  onAddProblem,
 }: {
   item: DraftItem;
   index: number;
   onPatch: (key: string, patch: Partial<DraftItem>) => void;
   onRemove: (key: string) => void;
-  onPatchProblem: (itemKey: string, probKey: string, patch: Partial<DraftProblem>) => void;
-  onRemoveProblem: (itemKey: string, probKey: string) => void;
-  onAddProblem: (itemKey: string) => void;
 }) {
   const { t } = useTranslation();
   const incomplete = !item.point.trim() || !item.explanation.trim();
@@ -1014,7 +828,7 @@ function ItemEditor({
             className="w-full resize-y rounded-2xl border-2 border-transparent bg-cream/70 px-4 py-3 text-base text-seed placeholder:text-seed/30 shadow-inner-soft transition focus:border-kiwi focus:bg-surface focus:outline-none"
           />
           <TextField
-            value={item.example ?? ""}
+            value={item.example}
             onChange={(e) => onPatch(item._key, { example: e.target.value })}
             placeholder={t("grammar.fieldExample")}
           />
@@ -1031,153 +845,8 @@ function ItemEditor({
             />
           </div>
         </div>
-
-        {/* 연습 문제 */}
-        <div className="mt-3 border-t border-border pt-3">
-          <p className="mb-2 text-caption font-bold uppercase tracking-wide text-kiwi-700">
-            {t("grammar.problems", { count: item.problems.length })}
-          </p>
-          <div className="space-y-2.5">
-            {item.problems.map((p, pi) => (
-              <ProblemEditor
-                key={p._key}
-                problem={p}
-                index={pi}
-                onPatch={(patch) => onPatchProblem(item._key, p._key, patch)}
-                onRemove={() => onRemoveProblem(item._key, p._key)}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => onAddProblem(item._key)}
-            className="mt-2.5 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-bark/40 text-caption font-bold text-bark outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-kiwi-400"
-          >
-            <Plus size={15} strokeWidth={2.4} />
-            {t("grammar.addProblem")}
-          </button>
-        </div>
       </Card>
     </li>
-  );
-}
-
-// 문제 편집 — kind 토글 + prompt + answer + (choice) options
-function ProblemEditor({
-  problem,
-  index,
-  onPatch,
-  onRemove,
-}: {
-  problem: DraftProblem;
-  index: number;
-  onPatch: (patch: Partial<DraftProblem>) => void;
-  onRemove: () => void;
-}) {
-  const { t } = useTranslation();
-  const opts = problem.options ?? [];
-
-  const setKind = (kind: ProblemKind) => {
-    if (kind === "typing") onPatch({ kind, options: null });
-    else onPatch({ kind, options: opts.length ? opts : ["", ""] });
-  };
-  const setOption = (i: number, v: string) => {
-    const next = [...(problem.options ?? [])];
-    next[i] = v;
-    onPatch({ options: next });
-  };
-  const addOption = () => onPatch({ options: [...(problem.options ?? []), ""] });
-  const removeOption = (i: number) =>
-    onPatch({ options: (problem.options ?? []).filter((_, idx) => idx !== i) });
-
-  return (
-    <div className="rounded-2xl bg-cream/60 p-3 ring-1 ring-border/70">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-bold text-seed/40">
-          Q{index + 1}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <SegmentedControl<ProblemKind>
-            size="sm"
-            layoutId={`pk-${problem._key}`}
-            ariaLabel={t("grammar.problemKind")}
-            value={problem.kind}
-            onChange={setKind}
-            segments={[
-              { value: "choice", label: t("grammar.kindChoice") },
-              { value: "typing", label: t("grammar.kindTyping") },
-            ]}
-          />
-          <IconButton
-            label={t("common.delete")}
-            variant="ghost"
-            className="h-9 w-9 text-seed/40 hover:bg-pop-soft hover:text-pop"
-            onClick={onRemove}
-          >
-            <Trash2 size={16} />
-          </IconButton>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <TextField
-          value={problem.prompt}
-          onChange={(e) => onPatch({ prompt: e.target.value })}
-          placeholder={t("grammar.problemPrompt")}
-        />
-        <TextField
-          value={problem.answer}
-          onChange={(e) => onPatch({ answer: e.target.value })}
-          placeholder={t("grammar.problemAnswer")}
-        />
-
-        {problem.kind === "choice" && (
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-seed/45">
-              {t("grammar.options")}
-            </p>
-            {opts.map((o, i) => {
-              const isAnswer =
-                o.trim().length > 0 && o.trim() === problem.answer.trim();
-              return (
-                <div key={i} className="flex items-center gap-1.5">
-                  <input
-                    value={o}
-                    onChange={(e) => setOption(i, e.target.value)}
-                    placeholder={t("grammar.optionN", { n: i + 1 })}
-                    className={[
-                      "min-h-[44px] flex-1 rounded-xl border-2 bg-surface px-3 text-body-sm text-seed placeholder:text-seed/30 transition focus:outline-none",
-                      isAnswer
-                        ? "border-kiwi-400 bg-kiwi-50"
-                        : "border-transparent focus:border-kiwi",
-                    ].join(" ")}
-                  />
-                  {isAnswer && (
-                    <Check size={16} strokeWidth={3} className="shrink-0 text-kiwi-700" />
-                  )}
-                  <IconButton
-                    label={t("common.delete")}
-                    variant="ghost"
-                    className="h-9 w-9 text-seed/35 hover:bg-pop-soft hover:text-pop"
-                    onClick={() => removeOption(i)}
-                  >
-                    <X size={15} strokeWidth={2.6} />
-                  </IconButton>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              onClick={addOption}
-              className="flex min-h-[36px] items-center gap-1 rounded-xl px-2.5 text-caption font-bold text-kiwi-700 transition active:scale-95 hover:bg-kiwi-50"
-            >
-              <Plus size={14} strokeWidth={2.6} />
-              {t("grammar.addOption")}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

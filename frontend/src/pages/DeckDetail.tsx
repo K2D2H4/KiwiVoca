@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Camera,
   Check,
-  ChevronDown,
   Copy,
   Globe,
   GraduationCap,
@@ -640,7 +639,6 @@ function GrammarItemRow({
   onToggleLearned: (itemId: number, next: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
   const learned = item.progress.is_learned;
   const checkId = `glearn-${item.id}`;
 
@@ -680,46 +678,6 @@ function GrammarItemRow({
             )}
           </div>
         </div>
-
-        {/* 문제 미리보기 (접힘/펼침) */}
-        {item.problems.length > 0 && (
-          <div className="mt-2.5">
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
-              className="flex min-h-[44px] w-full items-center justify-between rounded-xl px-1 text-caption font-bold text-kiwi-700 outline-none transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-kiwi-400"
-            >
-              <span>{t("grammar.problems", { count: item.problems.length })}</span>
-              <ChevronDown
-                size={16}
-                className={[
-                  "transition-transform",
-                  expanded ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </button>
-            {expanded && (
-              <ul className="mt-1.5 space-y-1.5">
-                {item.problems.map((p) => (
-                  <li
-                    key={p.id}
-                    className="rounded-xl bg-cream/70 px-3 py-2 text-body-sm text-seed/75"
-                  >
-                    <span className="mr-1.5 align-middle">
-                      <Badge tone="neutral" size="sm">
-                        {p.kind === "choice"
-                          ? t("grammar.kindChoice")
-                          : t("grammar.kindTyping")}
-                      </Badge>
-                    </span>
-                    {p.prompt}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
 
         {/* 학습완료 토글 — 직관적 체크박스 + 라벨 (≥44px 터치) */}
         <div className="mt-2.5 border-t border-border pt-2.5">

@@ -16,7 +16,8 @@ import type {
   GrammarItem,
   GrammarLearnedPayload,
   GrammarLearnedResult,
-  PracticeProblem,
+  PracticePayload,
+  PracticeResponse,
 } from "../types/grammar";
 
 // 덱별 문법 항목 캐시 키 (카드와 별도 네임스페이스)
@@ -156,50 +157,26 @@ export interface PracticeParams {
   order?: "weak" | "random";
 }
 
-export const practiceKey = (p: Required<PracticeParams>) =>
-  [
-    "grammar",
-    "practice",
-    idsParam(p.deckIds),
-    [...p.levels].sort().join(","),
-    [...p.categories].sort().join(","),
-    p.scope,
-    p.order,
-    p.limit,
-  ] as const;
-
-// GET /api/grammar/practice — 필터/범위/개수/정렬 반영한 문제 배열
-export function usePractice(params: PracticeParams) {
-  const resolved: Required<PracticeParams> = {
-    deckIds: params.deckIds,
-    levels: params.levels ?? [],
-    categories: params.categories ?? [],
-    scope: params.scope ?? "all",
-    limit: params.limit ?? 0,
-    order: params.order ?? "weak",
-  };
-  const enabled = resolved.deckIds.length > 0;
-  return useQuery({
-    queryKey: practiceKey(resolved),
-    enabled,
-    staleTime: 0,
-    queryFn: async () => {
-      const { data } = await api.get<PracticeProblem[]>("/grammar/practice", {
-        params: {
-          deck_ids: idsParam(resolved.deckIds),
-          // 다중 레벨/카테고리는 콤마 결합. 빈 값이면 파라미터 생략(전체).
-          ...(resolved.levels.length
-            ? { levels: resolved.levels.join(",") }
-            : {}),
-          ...(resolved.categories.length
-            ? { categories: resolved.categories.join(",") }
-            : {}),
-          scope: resolved.scope,
-          limit: resolved.limit,
-          order: resolved.order,
-        },
-      });
-      return data ?? [];
+// POST /api/grammar/practice — 즉석 생성(Gemini, 수초 소요)이므로 mutation.
+// "시작" 시점에 명시 호출 → 로딩 화면 노출 → problems 받으면 플레이.
+// 빈 항목이면 { problems: [] } 반환.
+export function usePractice() {
+  return useMutation({
+    mutationFn: async (params: PracticeParams) => {
+      const body: PracticePayload = {
+        deck_ids: [...params.deckIds].map(String).sort(),
+        scope: params.scope ?? "all",
+        limit: params.limit ?? 0,
+        order: params.order ?? "weak",
+        // 빈 값이면 필드 생략(전체)
+        ...(params.levels?.length ? { levels: params.levels } : {}),
+        ...(params.categories?.length ? { categories: params.categories } : {}),
+      };
+      const { data } = await api.post<PracticeResponse>(
+        "/grammar/practice",
+        body
+      );
+      return data?.problems ?? [];
     },
   });
 }

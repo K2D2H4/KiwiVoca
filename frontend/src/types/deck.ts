@@ -10,6 +10,7 @@ export interface Deck {
   kind: DeckKind;
   is_public?: boolean;
   card_count?: number;
+  grammar_count?: number; // 문법 덱 항목 수 (단어 덱은 0/없음)
   created_at?: string;
   updated_at?: string;
 }

@@ -28,7 +28,10 @@ class DeckUpdate(BaseModel):
 
 
 class DeckResponse(BaseModel):
-    """덱 응답. card_count 는 라우터에서 계산해 채운다."""
+    """덱 응답. card_count/grammar_count 는 라우터에서 계산해 채운다.
+
+    card_count: 단어 카드 수(vocab). grammar_count: 문법 항목 수(grammar).
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +44,7 @@ class DeckResponse(BaseModel):
     kind: str
     is_public: bool
     card_count: int = 0
+    grammar_count: int = 0
     created_at: datetime
     updated_at: datetime
 
