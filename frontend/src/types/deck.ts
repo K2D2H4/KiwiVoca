@@ -27,6 +27,7 @@ export interface Card {
   definition: string;
   example?: string | null;
   position?: number;
+  is_learned?: boolean; // GET /api/decks/{id}/cards 에 포함 — 학습 완료 여부
   created_at?: string;
 }
 

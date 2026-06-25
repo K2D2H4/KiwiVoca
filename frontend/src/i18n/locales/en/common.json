@@ -92,7 +92,11 @@
     "deleteConfirmTitle": "Delete this card?",
     "addedToast": "Card added!",
     "savedToast": "Card saved.",
-    "deletedToast": "Card deleted."
+    "deletedToast": "Card deleted.",
+    "markLearned": "Mark as learned",
+    "markUnlearned": "Mark as not learned",
+    "learnedSummary": "{{learned}} learned / {{total}} total",
+    "learnedError": "Couldn't update learned status."
   },
   "study": {
     "title": "Study",
@@ -140,7 +144,22 @@
     },
     "kicker": "Today's study",
     "pickDeck": "Pick a deck",
-    "emptyTitle": "No decks to study"
+    "emptyTitle": "No decks to study",
+    "pickDecks": "Pick decks (select multiple)",
+    "startWithSelected": "Study {{count}} selected",
+    "optionsTitle": "Set study scope",
+    "optionsHint": "Choose which words and how many to study.",
+    "scopeLabel": "Scope",
+    "scopeAll": "All words",
+    "scopeUnlearned": "Unlearned only",
+    "summaryLoading": "Counting words…",
+    "summaryUnlearned": "{{count}} unlearned",
+    "summaryTotal": "{{count}} total",
+    "countLabel": "Count",
+    "countAll": "All",
+    "countCustom": "Custom",
+    "countCustomPlaceholder": "Enter a number",
+    "startCta": "Start studying"
   },
   "call": {
     "kicker": "AI Call",
@@ -215,7 +234,8 @@
     "noDecks": "No decks to add to. Try saving as a new deck.",
     "saveCta": "Save",
     "commitError": "Saving failed. Please try again.",
-    "committed": "Imported {{count}} card(s)!"
+    "committed": "Imported {{count}} card(s)!",
+    "saveBarCount": "cards to save"
   },
   "tts": {
     "play": "Listen to pronunciation"

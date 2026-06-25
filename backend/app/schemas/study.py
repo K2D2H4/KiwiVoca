@@ -10,6 +10,7 @@ class CardProgressInfo(BaseModel):
     box: int
     correct_count: int
     wrong_count: int
+    is_learned: bool = False
     last_studied_at: datetime | None = None
 
 
@@ -54,3 +55,25 @@ class AnswerResponse(BaseModel):
     box: int
     correct_count: int
     wrong_count: int
+
+
+class LearnedRequest(BaseModel):
+    """학습 완료 토글 요청. is_learned 로 완료/미완료를 설정한다."""
+
+    card_id: int
+    is_learned: bool
+
+
+class LearnedResponse(BaseModel):
+    """학습 완료 토글 결과."""
+
+    card_id: int
+    is_learned: bool
+
+
+class StudySummaryResponse(BaseModel):
+    """선택한 덱들의 학습 진행 요약 (개수 UI용)."""
+
+    total: int
+    learned: int
+    unlearned: int

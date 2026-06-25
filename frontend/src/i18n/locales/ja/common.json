@@ -92,7 +92,11 @@
     "deleteConfirmTitle": "このカードを削除しますか？",
     "addedToast": "カードを追加しました！",
     "savedToast": "カードを保存しました。",
-    "deletedToast": "カードを削除しました。"
+    "deletedToast": "カードを削除しました。",
+    "markLearned": "学習完了にする",
+    "markUnlearned": "学習完了を解除",
+    "learnedSummary": "完了 {{learned}} / 全 {{total}}",
+    "learnedError": "学習完了の状態を変更できませんでした。"
   },
   "study": {
     "title": "学習する",
@@ -140,7 +144,22 @@
     },
     "kicker": "今日の学習",
     "pickDeck": "単語帳を選ぶ",
-    "emptyTitle": "学習できる単語帳がありません"
+    "emptyTitle": "学習できる単語帳がありません",
+    "pickDecks": "単語帳を選ぶ（複数選択可）",
+    "startWithSelected": "選んだ{{count}}個で学習",
+    "optionsTitle": "学習範囲を決める",
+    "optionsHint": "どの単語をいくつ学ぶか選びます。",
+    "scopeLabel": "範囲",
+    "scopeAll": "すべての単語",
+    "scopeUnlearned": "未完了のみ",
+    "summaryLoading": "単語を数えています…",
+    "summaryUnlearned": "未完了 {{count}}個",
+    "summaryTotal": "全部 {{count}}個",
+    "countLabel": "数",
+    "countAll": "すべて",
+    "countCustom": "手入力",
+    "countCustomPlaceholder": "数を入力してください",
+    "startCta": "学習を始める"
   },
   "call": {
     "kicker": "AI通話",
@@ -215,7 +234,8 @@
     "noDecks": "追加できる単語帳がありません。新しい単語帳として保存してください。",
     "saveCta": "保存する",
     "commitError": "保存に失敗しました。もう一度お試しください。",
-    "committed": "カードを{{count}}枚取り込みました！"
+    "committed": "カードを{{count}}枚取り込みました！",
+    "saveBarCount": "保存するカード"
   },
   "tts": {
     "play": "発音を聞く"

@@ -31,7 +31,11 @@ class CardBulkRequest(BaseModel):
 
 
 class CardResponse(BaseModel):
-    """카드 응답."""
+    """카드 응답.
+
+    is_learned: 현재 사용자의 학습 완료 여부 (card_progress LEFT JOIN, 없으면 false).
+    카드 생성/수정 응답에서는 갓 만든 카드라 항상 false 이다.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,4 +46,5 @@ class CardResponse(BaseModel):
     definition: str
     example: str | None = None
     position: int
+    is_learned: bool = False
     created_at: datetime

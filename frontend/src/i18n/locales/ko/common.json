@@ -92,7 +92,11 @@
     "deleteConfirmTitle": "이 카드를 삭제할까요?",
     "addedToast": "카드를 추가했어요!",
     "savedToast": "카드를 저장했어요.",
-    "deletedToast": "카드를 삭제했어요."
+    "deletedToast": "카드를 삭제했어요.",
+    "markLearned": "학습 완료로 표시",
+    "markUnlearned": "학습 완료 해제",
+    "learnedSummary": "완료 {{learned}} / 총 {{total}}",
+    "learnedError": "학습 완료 상태를 바꾸지 못했어요."
   },
   "study": {
     "title": "학습하기",
@@ -140,7 +144,22 @@
     },
     "kicker": "오늘의 학습",
     "pickDeck": "단어장 고르기",
-    "emptyTitle": "학습할 단어장이 없어요"
+    "emptyTitle": "학습할 단어장이 없어요",
+    "pickDecks": "단어장 고르기 (여러 개 선택 가능)",
+    "startWithSelected": "선택한 {{count}}개로 학습 시작",
+    "optionsTitle": "학습 범위 정하기",
+    "optionsHint": "어떤 단어를 얼마나 외울지 골라요.",
+    "scopeLabel": "범위",
+    "scopeAll": "전체 단어",
+    "scopeUnlearned": "미완료만",
+    "summaryLoading": "단어 수를 세는 중…",
+    "summaryUnlearned": "미완료 {{count}}개",
+    "summaryTotal": "전체 {{count}}개",
+    "countLabel": "개수",
+    "countAll": "전체",
+    "countCustom": "직접 입력",
+    "countCustomPlaceholder": "개수를 입력하세요",
+    "startCta": "학습 시작"
   },
   "call": {
     "kicker": "AI 전화",
@@ -215,7 +234,8 @@
     "noDecks": "추가할 단어장이 없어요. 새 단어장으로 저장해보세요.",
     "saveCta": "저장하기",
     "commitError": "저장에 실패했어요. 다시 시도해주세요.",
-    "committed": "카드 {{count}}개를 가져왔어요!"
+    "committed": "카드 {{count}}개를 가져왔어요!",
+    "saveBarCount": "저장할 카드"
   },
   "tts": {
     "play": "발음 듣기"

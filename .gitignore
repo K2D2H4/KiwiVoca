@@ -41,3 +41,6 @@ ds-bundle/
 .design-sync/node_modules
 frontend/.ds-input.css
 frontend/.ds-styles.css
+
+# direnv (로컬 환경, 시크릿 아님이지만 사용자별)
+.envrc

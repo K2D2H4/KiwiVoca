@@ -31,6 +31,7 @@ import {
 import { langLabel } from "../lib/languages";
 import { useDeck, useDeleteDeck, deckKey } from "../hooks/useDecks";
 import { useCards, useCardMutations, cardsKey } from "../hooks/useCards";
+import { useToggleLearned } from "../hooks/useStudy";
 import { useTogglePublic } from "../hooks/useSharing";
 import type { UpdateCardPayload } from "../types/deck";
 
@@ -51,6 +52,7 @@ export default function DeckDetail() {
   });
   const deleteDeck = useDeleteDeck();
   const { create, update, remove } = useCardMutations(id);
+  const toggleLearned = useToggleLearned(id);
   const togglePublic = useTogglePublic(id);
 
   // 공유 링크 복사 완료 표시 (잠깐 체크 아이콘)
@@ -111,6 +113,14 @@ export default function DeckDetail() {
     toast.success(t("card.savedToast"));
   };
 
+  // 학습완료 토글 — 낙관적 업데이트(훅 내부), 실패 시 롤백+토스트
+  const onToggleLearned = (cardId: string | number, next: boolean) => {
+    toggleLearned.mutate(
+      { card_id: cardId, is_learned: next },
+      { onError: () => toast.error(t("card.learnedError")) }
+    );
+  };
+
   const onDeleteDeck = async () => {
     // 재조회 차단 먼저 — 진행 중 in-flight 쿼리 취소 + 캐시 제거
     setDeleting(true);
@@ -167,6 +177,8 @@ export default function DeckDetail() {
   }
 
   const cardCount = cards?.length ?? deck?.card_count ?? 0;
+  // 학습완료 요약 — 완료 N / 총 M
+  const learnedCount = cards?.filter((c) => c.is_learned).length ?? 0;
 
   return (
     <div className="min-h-[100dvh]">
@@ -374,6 +386,25 @@ export default function DeckDetail() {
 
         {/* 카드 목록 */}
         <div className="mt-5 pb-4">
+          {/* 학습완료 요약 — 완료 N / 총 M + 진행 막대 */}
+          {cards && cards.length > 0 && (
+            <div className="mb-3 flex items-center gap-3 px-1">
+              <p className="shrink-0 text-caption font-bold uppercase tracking-wide text-seed/45">
+                {t("card.learnedSummary", {
+                  learned: learnedCount,
+                  total: cards.length,
+                })}
+              </p>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+                <span
+                  className="block h-full rounded-full bg-kiwi transition-[width] duration-300"
+                  style={{
+                    width: `${cards.length ? (learnedCount / cards.length) * 100 : 0}%`,
+                  }}
+                />
+              </span>
+            </div>
+          )}
           {cardsLoading ? (
             <ul className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -391,6 +422,7 @@ export default function DeckDetail() {
                   index={i}
                   onSave={onSaveCard}
                   onDelete={(cid) => setPendingCardDelete(cid)}
+                  onToggleLearned={onToggleLearned}
                   saving={update.isPending}
                   langTerm={deck?.lang_term}
                 />

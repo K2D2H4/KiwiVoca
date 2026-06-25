@@ -94,7 +94,11 @@
     "deleteConfirmTitle": "Удалить эту карточку?",
     "addedToast": "Карточка добавлена!",
     "savedToast": "Карточка сохранена.",
-    "deletedToast": "Карточка удалена."
+    "deletedToast": "Карточка удалена.",
+    "markLearned": "Отметить как выученное",
+    "markUnlearned": "Снять отметку",
+    "learnedSummary": "Выучено {{learned}} / всего {{total}}",
+    "learnedError": "Не удалось обновить статус."
   },
   "study": {
     "title": "Учёба",
@@ -142,7 +146,22 @@
     },
     "kicker": "Учёба сегодня",
     "pickDeck": "Выберите набор",
-    "emptyTitle": "Нет наборов для учёбы"
+    "emptyTitle": "Нет наборов для учёбы",
+    "pickDecks": "Выберите наборы (можно несколько)",
+    "startWithSelected": "Учить выбранные ({{count}})",
+    "optionsTitle": "Настройка изучения",
+    "optionsHint": "Выберите, какие слова и сколько учить.",
+    "scopeLabel": "Объём",
+    "scopeAll": "Все слова",
+    "scopeUnlearned": "Только невыученные",
+    "summaryLoading": "Считаем слова…",
+    "summaryUnlearned": "Невыученных: {{count}}",
+    "summaryTotal": "Всего: {{count}}",
+    "countLabel": "Количество",
+    "countAll": "Все",
+    "countCustom": "Своё число",
+    "countCustomPlaceholder": "Введите число",
+    "startCta": "Начать учить"
   },
   "call": {
     "kicker": "Звонок с ИИ",
@@ -217,7 +236,8 @@
     "noDecks": "Нет наборов для добавления. Сохраните как новый.",
     "saveCta": "Сохранить",
     "commitError": "Не удалось сохранить. Попробуйте ещё раз.",
-    "committed": "Импортировано карточек: {{count}}!"
+    "committed": "Импортировано карточек: {{count}}!",
+    "saveBarCount": "карточек к сохранению"
   },
   "tts": {
     "play": "Прослушать произношение"

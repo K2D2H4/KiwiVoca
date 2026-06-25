@@ -46,6 +46,9 @@ export default function App() {
               <Route path="/profile" element={<Profile />} />
             </Route>
             {/* 학습 세션·전화는 몰입형 풀스크린(탭바 없음) — 셸 밖에 둠 */}
+            {/* 멀티덱 + 옵션 진입(decks/scope/limit/mode 쿼리) */}
+            <Route path="/study/play" element={<StudySession />} />
+            {/* 레거시 단일 덱 진입 — 하위 호환 유지 */}
             <Route path="/study/:deckId/:mode" element={<StudySession />} />
             <Route path="/call/:deckId" element={<Call />} />
           </Route>
