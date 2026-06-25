@@ -45,6 +45,14 @@ class DeckResponse(BaseModel):
     updated_at: datetime
 
 
+class DeckMergeRequest(BaseModel):
+    """덱 병합 요청 — 선택 덱들의 카드+문법 항목을 새 덱으로 전부 복사."""
+
+    deck_ids: list[int] = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=1000)
+
+
 class PublicDeckResponse(BaseModel):
     """공개 덱 목록 응답. 내부 user_id 등 민감정보는 노출하지 않고 owner_name 만 제공."""
 

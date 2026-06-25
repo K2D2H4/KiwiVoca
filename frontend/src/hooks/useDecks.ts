@@ -66,6 +66,38 @@ export function useUpdateDeck(id: string | number) {
   });
 }
 
+// POST /api/decks/{id}/copy — 덱(카드+문법) 복제, 진척 미복사 → 새 덱 반환
+export function useCopyDeck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string | number) => {
+      const { data } = await api.post<Deck>(`/decks/${id}/copy`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DECKS_KEY });
+    },
+  });
+}
+
+// POST /api/decks/merge — 선택 덱들의 카드+문법을 합쳐 새 덱 생성
+export function useMergeDecks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      deck_ids: (string | number)[];
+      title: string;
+      description?: string;
+    }) => {
+      const { data } = await api.post<Deck>("/decks/merge", payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DECKS_KEY });
+    },
+  });
+}
+
 // DELETE /api/decks/{id}
 export function useDeleteDeck() {
   const qc = useQueryClient();

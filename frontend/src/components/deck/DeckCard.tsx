@@ -1,26 +1,58 @@
 // 덱 카드 — 목록 그리드 항목. Card(interactive) + Badge(kind/언어쌍) + 카드수.
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Layers } from "lucide-react";
+import { ArrowRight, Check, Layers } from "lucide-react";
 import { Card, Badge } from "../ui";
 import { langLabel } from "../../lib/languages";
 import type { Deck } from "../../types/deck";
 
-export default function DeckCard({ deck }: { deck: Deck }) {
+interface DeckCardProps {
+  deck: Deck;
+  // 선택 모드 — 병합용. 제공 시 Link 대신 선택 토글 버튼으로 렌더.
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string | number) => void;
+}
+
+export default function DeckCard({
+  deck,
+  selectable,
+  selected,
+  onToggleSelect,
+}: DeckCardProps) {
   const { t } = useTranslation();
   const isGrammar = deck.kind === "grammar";
   const count = deck.card_count ?? 0;
 
-  return (
-    <Link
-      to={`/decks/${deck.id}`}
-      className="group block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+  const inner = (
+    <Card
+      interactive
+      padding="md"
+      className={[
+        "flex h-full min-h-[140px] flex-col transition",
+        selectable && selected ? "ring-2 ring-kiwi shadow-kiwi-glow" : "",
+      ].join(" ")}
     >
-      <Card
-        interactive
-        padding="md"
-        className="flex h-full min-h-[140px] flex-col"
-      >
+      {/* 선택 모드 체크 마크 — 우상단 오버레이 */}
+      {selectable && (
+        <span
+          className={[
+            "absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 transition",
+            selected
+              ? "border-kiwi bg-kiwi text-white"
+              : "border-ink-300 bg-surface/90 text-transparent",
+          ].join(" ")}
+        >
+          <Check size={15} strokeWidth={3} />
+        </span>
+      )}
+      {renderBody()}
+    </Card>
+  );
+
+  function renderBody() {
+    return (
+      <>
         {/* 상단: kind 칩 + 언어쌍 */}
         <div className="mb-3 flex items-center gap-1.5">
           <Badge tone={isGrammar ? "neutral" : "kiwi"} size="sm">
@@ -52,7 +84,31 @@ export default function DeckCard({ deck }: { deck: Deck }) {
           <Layers size={15} className="shrink-0 text-kiwi-500" />
           {t("deck.cardCount", { count })}
         </div>
-      </Card>
+      </>
+    );
+  }
+
+  // 선택 모드: 네비게이션 대신 선택 토글 버튼
+  if (selectable) {
+    return (
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={!!selected}
+        onClick={() => onToggleSelect?.(deck.id)}
+        className="group relative block w-full rounded-3xl text-left outline-none focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      to={`/decks/${deck.id}`}
+      className="group relative block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+    >
+      {inner}
     </Link>
   );
 }

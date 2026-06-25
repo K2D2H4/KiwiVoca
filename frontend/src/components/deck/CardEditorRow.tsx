@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Pencil, Trash2 } from "lucide-react";
-import { Card, TextField, Button, IconButton, SpeakButton } from "../ui";
+import { Card, TextField, Button, IconButton, SpeakButton, Badge } from "../ui";
 import type { Card as CardType, UpdateCardPayload } from "../../types/deck";
 
 interface CardEditorRowProps {
@@ -107,82 +107,119 @@ export default function CardEditorRow({
   }
 
   const learned = !!card.is_learned;
+  const checkId = `learn-${card.id}`;
 
   return (
     <li>
       <Card
         padding="sm"
         className={[
-          "flex items-start gap-3 transition",
-          learned ? "bg-kiwi-50/70 ring-1 ring-kiwi-200" : "",
+          "transition",
+          learned ? "bg-kiwi-50/70 ring-1 ring-kiwi-300" : "",
         ].join(" ")}
       >
-        {/* 학습완료 토글 — 원형 체크. 미완료: 인덱스 번호, 완료: 체크 채움. */}
-        {onToggleLearned ? (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={learned}
-            aria-label={
-              learned ? t("card.markUnlearned") : t("card.markLearned")
-            }
-            onClick={() => onToggleLearned(card.id, !learned)}
+        <div className="flex items-start gap-3">
+          {/* 인덱스 번호 — 완료 시 작게, 카드 식별용 */}
+          <span
             className={[
-              "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-caption font-bold outline-none transition active:scale-90",
-              "focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-              learned
-                ? "bg-kiwi text-white shadow-kiwi-glow"
-                : "bg-kiwi-100 text-kiwi-700 hover:bg-kiwi-200",
+              "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-caption font-bold transition",
+              learned ? "bg-kiwi-200 text-kiwi-800" : "bg-kiwi-100 text-kiwi-700",
             ].join(" ")}
           >
-            {learned ? <Check size={18} strokeWidth={3} /> : index + 1}
-          </button>
-        ) : (
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-kiwi-100 text-caption font-bold text-kiwi-700">
             {index + 1}
           </span>
-        )}
-        <div className={["min-w-0 flex-1", learned ? "opacity-60" : ""].join(" ")}>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="break-words font-display text-base font-bold text-seed">
-              {card.term}
-            </span>
-            {card.reading && (
-              <span className="text-caption font-bold text-bark">
-                {card.reading}
+          <div
+            className={["min-w-0 flex-1", learned ? "opacity-60" : ""].join(" ")}
+          >
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="break-words font-display text-base font-bold text-seed">
+                {card.term}
               </span>
+              {card.reading && (
+                <span className="text-caption font-bold text-bark">
+                  {card.reading}
+                </span>
+              )}
+              {/* 완료 뱃지 — 완료 상태를 한눈에 */}
+              {learned && (
+                <Badge tone="kiwi" size="sm">
+                  <Check size={11} strokeWidth={3} className="mr-0.5" />
+                  {t("card.learnedBadge")}
+                </Badge>
+              )}
+              {/* term 발음 */}
+              <SpeakButton
+                text={card.term}
+                lang={langTerm}
+                variant="ghost"
+                size="sm"
+              />
+            </div>
+            {card.definition.trim() && (
+              <p className="mt-0.5 break-words text-body-sm text-seed/70">
+                {card.definition}
+              </p>
             )}
-            {/* term 발음 */}
-            <SpeakButton text={card.term} lang={langTerm} variant="ghost" size="sm" />
+            {card.example && (
+              <p className="mt-1 break-words border-l-2 border-kiwi-200 pl-2 text-caption italic text-seed/45">
+                {card.example}
+              </p>
+            )}
           </div>
-          {card.definition.trim() && (
-            <p className="mt-0.5 break-words text-body-sm text-seed/70">
-              {card.definition}
-            </p>
-          )}
-          {card.example && (
-            <p className="mt-1 break-words border-l-2 border-kiwi-200 pl-2 text-caption italic text-seed/45">
-              {card.example}
-            </p>
-          )}
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconButton
+              label={t("common.edit")}
+              variant="ghost"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil size={18} />
+            </IconButton>
+            <IconButton
+              label={t("common.delete")}
+              variant="ghost"
+              className="text-pop hover:bg-pop-soft"
+              onClick={() => onDelete(card.id)}
+            >
+              <Trash2 size={18} />
+            </IconButton>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton
-            label={t("common.edit")}
-            variant="ghost"
-            onClick={() => setEditing(true)}
-          >
-            <Pencil size={18} />
-          </IconButton>
-          <IconButton
-            label={t("common.delete")}
-            variant="ghost"
-            className="text-pop hover:bg-pop-soft"
-            onClick={() => onDelete(card.id)}
-          >
-            <Trash2 size={18} />
-          </IconButton>
-        </div>
+
+        {/* 학습완료 토글 — 눈에 띄는 체크박스 + 라벨 (≥44px 터치, 발견성↑) */}
+        {onToggleLearned && (
+          <div className="mt-2.5 border-t border-border pt-2.5">
+            <label
+              htmlFor={checkId}
+              className="flex min-h-[44px] cursor-pointer select-none items-center gap-2.5 rounded-xl px-1 transition active:scale-[0.99]"
+            >
+              <span
+                className={[
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition",
+                  learned
+                    ? "border-kiwi bg-kiwi text-white"
+                    : "border-ink-300 bg-surface text-transparent",
+                ].join(" ")}
+              >
+                <Check size={15} strokeWidth={3} />
+              </span>
+              <input
+                id={checkId}
+                type="checkbox"
+                className="sr-only"
+                checked={learned}
+                onChange={(e) => onToggleLearned(card.id, e.target.checked)}
+              />
+              <span
+                className={[
+                  "text-body-sm font-bold",
+                  learned ? "text-kiwi-700" : "text-seed/55",
+                ].join(" ")}
+              >
+                {learned ? t("card.markUnlearned") : t("card.markLearned")}
+              </span>
+            </label>
+          </div>
+        )}
       </Card>
     </li>
   );

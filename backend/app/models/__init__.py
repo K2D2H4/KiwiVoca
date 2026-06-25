@@ -5,3 +5,6 @@ from app.models.deck import Deck  # noqa: F401
 from app.models.card import Card  # noqa: F401
 from app.models.card_progress import CardProgress  # noqa: F401
 from app.models.import_job import ImportJob  # noqa: F401
+from app.models.grammar_item import GrammarItem  # noqa: F401
+from app.models.grammar_problem import GrammarProblem  # noqa: F401
+from app.models.grammar_progress import GrammarProgress  # noqa: F401

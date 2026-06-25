@@ -12,6 +12,7 @@ import {
   Languages,
   BarChart3,
   Compass,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import KiwiMark from "../KiwiMark";
@@ -107,6 +108,22 @@ export default function AppShell() {
           >
             <Plus size={22} strokeWidth={2.6} />
             <span>{t("nav.add")}</span>
+          </NavLink>
+
+          {/* 문법 추가 — 보조 진입 */}
+          <NavLink
+            to="/grammar/new"
+            className={({ isActive }) =>
+              [
+                "mt-1 flex items-center gap-3 rounded-2xl px-3.5 py-3 text-body-sm font-bold transition active:scale-[0.98]",
+                isActive
+                  ? "bg-kiwi-100 text-kiwi-700"
+                  : "text-seed/55 hover:bg-cream hover:text-seed",
+              ].join(" ")
+            }
+          >
+            <GraduationCap size={22} strokeWidth={2} />
+            <span>{t("grammar.addShort")}</span>
           </NavLink>
         </nav>
 

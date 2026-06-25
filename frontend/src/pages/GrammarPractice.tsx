@@ -1,0 +1,700 @@
+// 문법 연습 — 몰입형 풀스크린 세션. 셸 밖(StudySession처럼) 라우트.
+// 진입: 필터/범위/개수 미지정 시 옵션 시트 → 시작. 쿼리로 직접 진입도 지원.
+// 라우트: /grammar/practice?decks=1,2&levels=초급,중급&categories=시제&scope=all|unlearned&limit=0|N&order=weak|random
+import { useCallback, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Check, Info, BookOpen, RotateCcw, Home } from "lucide-react";
+import KiwiMark from "../components/KiwiMark";
+import KiwiBuddy, { type KiwiMood } from "../components/KiwiBuddy";
+import StudyTopBar from "../components/study/StudyTopBar";
+import ScoreChip from "../components/study/ScoreChip";
+import GrammarOptionsSheet, {
+  type GrammarPracticeOptions,
+} from "../components/study/GrammarOptionsSheet";
+import { Button, Card } from "../components/ui";
+import { useGrammarFilters, usePractice, useGrammarAnswer } from "../hooks/useGrammar";
+import { useCountUp } from "../hooks/useCountUp";
+import { useSound } from "../hooks/useSound";
+import { isAnswerCorrect, shuffle } from "../lib/grading";
+import { spring, questionVariants, shakeKeyframes, shakeTransition } from "../lib/motion";
+import type { PracticeProblem } from "../types/grammar";
+
+interface Outcome {
+  problemId: number;
+  itemId: number;
+  isCorrect: boolean;
+}
+
+export default function GrammarPractice() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+
+  // decks(콤마) → deck ids
+  const deckIds = useMemo<string[]>(() => {
+    const raw = params.get("decks");
+    return raw ? raw.split(",").filter(Boolean) : [];
+  }, [params]);
+
+  // 필터/옵션 쿼리 — 하나라도 있으면 "구성됨"으로 보고 시트 생략
+  const levels = useMemo(() => splitParam(params.get("levels")), [params]);
+  const categories = useMemo(
+    () => splitParam(params.get("categories")),
+    [params]
+  );
+  const scope = (params.get("scope") as "all" | "unlearned") ?? "all";
+  const order = (params.get("order") as "weak" | "random") ?? "weak";
+  const limitRaw = params.get("limit");
+  const limit = limitRaw != null ? Number(limitRaw) : 0;
+  const configured = params.get("start") === "1";
+
+  const filtersQuery = useGrammarFilters(deckIds);
+  const practice = usePractice({
+    deckIds,
+    levels,
+    categories,
+    scope,
+    limit: Number.isFinite(limit) ? limit : 0,
+    order,
+  });
+
+  // 옵션 시트 — 미구성 진입 시 자동 오픈
+  const [sheetOpen, setSheetOpen] = useState(!configured);
+
+  const close = () => navigate("/study");
+
+  const startWith = useCallback(
+    (opts: GrammarPracticeOptions) => {
+      const next = new URLSearchParams(params);
+      next.set("start", "1");
+      if (opts.levels.length) next.set("levels", opts.levels.join(","));
+      else next.delete("levels");
+      if (opts.categories.length)
+        next.set("categories", opts.categories.join(","));
+      else next.delete("categories");
+      next.set("scope", opts.scope);
+      next.set("limit", String(opts.limit));
+      setParams(next, { replace: true });
+      setSheetOpen(false);
+    },
+    [params, setParams]
+  );
+
+  // 덱 미지정 — 잘못된 진입
+  if (deckIds.length === 0) {
+    return <CenteredNotice text={t("grammar.practice.noDeck")} onBack={close} />;
+  }
+
+  // 옵션 시트 (구성 전)
+  if (!configured) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-6 text-center">
+        <KiwiBuddy mood="happy" size={88} float />
+        <p className="text-body-sm font-bold text-seed/55">
+          {t("grammar.practice.choosePrompt")}
+        </p>
+        <GrammarOptionsSheet
+          open={sheetOpen}
+          levels={filtersQuery.data?.levels ?? []}
+          loading={filtersQuery.isLoading}
+          onClose={close}
+          onStart={startWith}
+        />
+        {!sheetOpen && (
+          <Button variant="secondary" size="lg" onClick={() => setSheetOpen(true)}>
+            {t("grammar.practice.openOptions")}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // 구성됨 — 문제 로드 상태
+  if (practice.isLoading) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4">
+        <KiwiMark size={72} className="animate-pop-bounce" />
+        <p className="text-sm font-bold text-seed/50">{t("common.loading")}</p>
+      </div>
+    );
+  }
+  if (practice.isError) {
+    return <CenteredNotice text={t("grammar.practice.loadError")} onBack={close} />;
+  }
+  const problems = practice.data ?? [];
+  if (problems.length === 0) {
+    return (
+      <CenteredNotice
+        text={t("grammar.practice.emptyResult")}
+        onBack={() => navigate(0)}
+        backLabel={t("grammar.practice.changeFilter")}
+      />
+    );
+  }
+
+  return <PracticeRunner problems={problems} onClose={close} />;
+}
+
+// ── 실제 진행 러너 (문제 집합 고정) ───────────────────────────
+function PracticeRunner({
+  problems,
+  onClose,
+}: {
+  problems: PracticeProblem[];
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { play } = useSound();
+  const answerMut = useGrammarAnswer();
+
+  // 출제 순서 셔플(한 번)
+  const queue = useMemo(() => shuffle(problems), [problems]);
+
+  const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [outcomes, setOutcomes] = useState<Outcome[]>([]);
+  const [done, setDone] = useState(false);
+  const [showContext, setShowContext] = useState(false);
+
+  const problem = queue[index];
+
+  const handleAnswered = useCallback(
+    (ok: boolean) => {
+      if (!problem) return;
+      play(ok ? "correct" : "wrong");
+      if (ok) setScore((s) => s + 1);
+      setOutcomes((o) => [
+        ...o,
+        { problemId: problem.problem_id, itemId: problem.item_id, isCorrect: ok },
+      ]);
+      // 진척 기록(후속, 실패해도 흐름 진행)
+      answerMut.mutate({ item_id: problem.item_id, is_correct: ok });
+    },
+    [problem, play, answerMut]
+  );
+
+  const next = useCallback(() => {
+    setShowContext(false);
+    if (index + 1 >= queue.length) {
+      setDone(true);
+      return;
+    }
+    setIndex((i) => i + 1);
+  }, [index, queue.length]);
+
+  if (done) {
+    return (
+      <GrammarResult
+        outcomes={outcomes}
+        problems={queue}
+        onClose={onClose}
+        onRestart={() => {
+          setIndex(0);
+          setScore(0);
+          setOutcomes([]);
+          setDone(false);
+          setShowContext(false);
+        }}
+      />
+    );
+  }
+
+  if (!problem) return null;
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col overflow-hidden">
+      <StudyTopBar
+        onClose={onClose}
+        current={index + 1}
+        total={queue.length}
+        right={<ScoreChip score={score} />}
+      />
+
+      <div className="mx-auto flex w-full max-w-screen-sm flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        {/* 문법 메타 + 컨텍스트 토글 */}
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="rounded-full bg-kiwi/12 px-2.5 py-1 text-caption font-black text-kiwi-dark">
+              {problem.level}
+            </span>
+            <span className="truncate text-caption font-bold text-seed/45">
+              {problem.category}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowContext((v) => !v)}
+            aria-pressed={showContext}
+            className="flex min-h-[36px] shrink-0 items-center gap-1 rounded-full bg-ink-100/80 px-3 text-caption font-bold text-seed/70 outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-kiwi-400"
+          >
+            <Info size={13} strokeWidth={2.6} />
+            {t("grammar.practice.contextToggle")}
+          </button>
+        </div>
+
+        {/* 문법 컨텍스트(point/explanation) */}
+        <AnimatePresence initial={false}>
+          {showContext && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2.5 rounded-3xl bg-kiwi/8 p-4 ring-1 ring-kiwi/15">
+                <p className="flex items-center gap-1.5 text-body-sm font-black text-kiwi-dark">
+                  <BookOpen size={15} strokeWidth={2.6} />
+                  {problem.point}
+                </p>
+                <p className="mt-1.5 text-caption font-medium leading-relaxed text-seed/65">
+                  {problem.item_explanation}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 문제 카드 + 보기/입력 */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={problem.problem_id}
+            variants={questionVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={spring.smooth}
+            className="flex flex-1 flex-col"
+          >
+            {problem.kind === "choice" ? (
+              <ChoiceProblem problem={problem} onAnswered={handleAnswered} onNext={next} isLast={index + 1 >= queue.length} />
+            ) : (
+              <TypingProblem problem={problem} onAnswered={handleAnswered} onNext={next} isLast={index + 1 >= queue.length} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// 빈칸 ___ 을 pop 밑줄 칩으로 렌더
+function PromptText({ prompt }: { prompt: string }) {
+  const parts = prompt.split(/(_{2,})/g);
+  return (
+    <span className="break-words text-[clamp(1.35rem,5.5vw,1.85rem)] font-black leading-snug text-seed">
+      {parts.map((p, i) =>
+        /^_{2,}$/.test(p) ? (
+          <span
+            key={i}
+            className="mx-1 inline-block min-w-[3ch] translate-y-1 rounded-md border-b-[3px] border-pop align-baseline"
+            aria-hidden="true"
+          >
+            &nbsp;
+          </span>
+        ) : (
+          <span key={i}>{p}</span>
+        )
+      )}
+    </span>
+  );
+}
+
+// ── 객관식 ───────────────────────────────────────────────────
+function ChoiceProblem({
+  problem,
+  onAnswered,
+  onNext,
+  isLast,
+}: {
+  problem: PracticeProblem;
+  onAnswered: (ok: boolean) => void;
+  onNext: () => void;
+  isLast: boolean;
+}) {
+  const { t } = useTranslation();
+  const options = useMemo(
+    () => shuffle(problem.options ?? []),
+    [problem.options]
+  );
+  const [picked, setPicked] = useState<string | null>(null);
+  const revealed = picked !== null;
+  const correct = problem.answer;
+
+  const choose = (opt: string) => {
+    if (revealed) return;
+    setPicked(opt);
+    onAnswered(isAnswerCorrect(opt, correct));
+  };
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="mt-3 flex min-h-[22dvh] flex-col items-center justify-center rounded-3xl bg-surface p-7 text-center shadow-soft">
+        <span className="mb-3 text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
+          {t("grammar.practice.fillBlank")}
+        </span>
+        <PromptText prompt={problem.prompt} />
+      </div>
+
+      <div className="mt-4 grid gap-2.5">
+        {options.map((opt) => {
+          const isCorrectOpt = isAnswerCorrect(opt, correct);
+          const isPicked = picked === opt;
+          const state = !revealed
+            ? "idle"
+            : isCorrectOpt
+              ? "correct"
+              : isPicked
+                ? "wrong"
+                : "dim";
+          return (
+            <motion.button
+              key={opt}
+              type="button"
+              disabled={revealed}
+              onClick={() => choose(opt)}
+              whileTap={revealed ? undefined : { scale: 0.97 }}
+              animate={
+                state === "correct"
+                  ? { scale: [1, 1.04, 1] }
+                  : state === "wrong"
+                    ? { x: shakeKeyframes.x }
+                    : { scale: 1, x: 0 }
+              }
+              transition={state === "wrong" ? shakeTransition : spring.snappy}
+              className={[
+                "min-h-[56px] rounded-2xl border-2 px-4 text-left text-body font-extrabold transition-colors",
+                state === "idle" &&
+                  "border-transparent bg-surface text-seed shadow-soft",
+                state === "correct" &&
+                  "border-kiwi bg-kiwi/12 text-kiwi-dark shadow-pop",
+                state === "wrong" && "border-pop bg-pop/12 text-pop-dark",
+                state === "dim" && "border-transparent bg-ink-100/60 text-seed/35",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="min-w-0 break-words">{opt}</span>
+                {state === "correct" && (
+                  <Check size={20} strokeWidth={3} className="shrink-0" />
+                )}
+              </span>
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* 해설 + 다음 */}
+      <AnimatePresence>
+        {revealed && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={spring.snappy}
+            className="mt-auto pt-4"
+          >
+            {problem.explanation && (
+              <p className="mb-3 rounded-2xl bg-bark/8 px-4 py-2.5 text-caption font-medium leading-relaxed text-bark">
+                {problem.explanation}
+              </p>
+            )}
+            <motion.button
+              type="button"
+              onClick={onNext}
+              whileTap={{ scale: 0.96 }}
+              className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-pop hover:bg-kiwi-dark"
+            >
+              {isLast ? t("study.finish") : t("study.next")}
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── 타이핑 ───────────────────────────────────────────────────
+function TypingProblem({
+  problem,
+  onAnswered,
+  onNext,
+  isLast,
+}: {
+  problem: PracticeProblem;
+  onAnswered: (ok: boolean) => void;
+  onNext: () => void;
+  isLast: boolean;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState("");
+  const [phase, setPhase] = useState<"input" | "correct" | "wrong">("input");
+  const revealed = phase !== "input";
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phase !== "input" || !value.trim()) return;
+    const ok = isAnswerCorrect(value, problem.answer);
+    setPhase(ok ? "correct" : "wrong");
+    onAnswered(ok);
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-1 flex-col">
+      <div className="mt-3 flex min-h-[22dvh] flex-col items-center justify-center rounded-3xl bg-surface p-7 text-center shadow-soft">
+        <span className="mb-3 text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
+          {t("grammar.practice.fillBlankType")}
+        </span>
+        <PromptText prompt={problem.prompt} />
+      </div>
+
+      <div className="mt-4">
+        <motion.div
+          animate={phase === "wrong" ? { x: shakeKeyframes.x } : { x: 0 }}
+          transition={phase === "wrong" ? shakeTransition : { duration: 0 }}
+        >
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            disabled={revealed}
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder={t("grammar.practice.typeHere")}
+            className={`min-h-[56px] w-full rounded-2xl border-2 bg-surface px-4 text-lg font-extrabold text-seed shadow-soft transition-[border-color,box-shadow] duration-200 placeholder:text-seed/30 focus:outline-none ${
+              phase === "correct"
+                ? "border-kiwi shadow-pop"
+                : phase === "wrong"
+                  ? "border-pop shadow-pop"
+                  : "border-transparent focus:border-kiwi focus:shadow-[0_0_0_4px_rgba(107,191,89,0.15)]"
+            }`}
+          />
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+          {phase === "correct" && (
+            <motion.div
+              key="ok"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={spring.snappy}
+              className="mt-3 flex items-center gap-2 rounded-2xl bg-kiwi/12 px-4 py-3 text-sm font-extrabold text-kiwi-dark"
+            >
+              <Check size={18} strokeWidth={2.8} />
+              {t("study.correctMsg")}
+            </motion.div>
+          )}
+          {phase === "wrong" && (
+            <motion.div
+              key="ng"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0 }}
+              transition={spring.snappy}
+              className="mt-3 overflow-hidden rounded-2xl bg-pop/12 px-4 py-3"
+            >
+              <p className="text-xs font-bold text-pop">{t("study.wrongMsg")}</p>
+              <p className="mt-1 text-base font-black text-seed">
+                {problem.answer}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {revealed && problem.explanation && (
+          <p className="mt-3 rounded-2xl bg-bark/8 px-4 py-2.5 text-caption font-medium leading-relaxed text-bark">
+            {problem.explanation}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4">
+        {revealed ? (
+          <motion.button
+            type="button"
+            onClick={onNext}
+            whileTap={{ scale: 0.96 }}
+            className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-pop hover:bg-kiwi-dark"
+          >
+            {isLast ? t("study.finish") : t("study.next")}
+          </motion.button>
+        ) : (
+          <motion.button
+            type="submit"
+            disabled={!value.trim()}
+            whileTap={{ scale: 0.96 }}
+            className="min-h-[56px] w-full rounded-2xl bg-pop text-base font-extrabold text-white shadow-pop transition-opacity disabled:opacity-40"
+          >
+            {t("study.check")}
+          </motion.button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+// ── 결과 ─────────────────────────────────────────────────────
+function GrammarResult({
+  outcomes,
+  problems,
+  onClose,
+  onRestart,
+}: {
+  outcomes: Outcome[];
+  problems: PracticeProblem[];
+  onClose: () => void;
+  onRestart: () => void;
+}) {
+  const { t } = useTranslation();
+  const reduce = useReducedMotion();
+
+  const total = outcomes.length;
+  const correct = outcomes.filter((o) => o.isCorrect).length;
+  const wrong = total - correct;
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const accCount = useCountUp(accuracy, 1.0, 0.35);
+
+  const byId = new Map(problems.map((p) => [p.problem_id, p]));
+  const wrongProblems = outcomes
+    .filter((o) => !o.isCorrect)
+    .map((o) => byId.get(o.problemId))
+    .filter((p): p is PracticeProblem => Boolean(p));
+
+  const tier = accuracy >= 90 ? "perfect" : accuracy >= 60 ? "good" : "keepGoing";
+  const mood: KiwiMood =
+    tier === "perfect" ? "love" : tier === "good" ? "happy" : "neutral";
+
+  return (
+    <div className="bg-orchard relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
+      <div className="relative z-raised mx-auto w-full max-w-screen-sm">
+        <div className="flex flex-col items-center text-center">
+          <motion.div
+            animate={
+              tier === "perfect" && !reduce
+                ? { rotate: [0, -8, 8, -5, 0], y: [0, -6, 0] }
+                : {}
+            }
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            <KiwiBuddy mood={mood} size={104} />
+          </motion.div>
+          <p className="mt-4 text-body-sm font-bold uppercase tracking-wide text-kiwi-700">
+            {t(`study.reaction.${tier}`)}
+          </p>
+          <div className="mt-1 flex items-end justify-center gap-1">
+            <span className="font-display text-[5rem] font-bold leading-none text-seed tabular-nums">
+              {accCount}
+            </span>
+            <span className="mb-2 text-h1 font-bold text-seed/35">%</span>
+          </div>
+          <p className="mt-1 text-caption font-bold text-seed/50">
+            {t("study.accuracy")}
+          </p>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Card padding="md" className="text-center">
+            <p className="font-display text-h1 font-bold text-kiwi-700 tabular-nums">
+              {correct}
+            </p>
+            <p className="mt-1 text-caption font-bold text-seed/50">
+              {t("study.correct")}
+            </p>
+          </Card>
+          <Card padding="md" className="text-center">
+            <p className="font-display text-h1 font-bold text-pop-dark tabular-nums">
+              {wrong}
+            </p>
+            <p className="mt-1 text-caption font-bold text-seed/50">
+              {t("study.wrong")}
+            </p>
+          </Card>
+        </div>
+
+        {wrongProblems.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 px-1 text-caption font-bold uppercase tracking-wide text-seed/40">
+              {t("grammar.practice.reviewList")}
+            </p>
+            <ul className="space-y-2">
+              {wrongProblems.map((p) => (
+                <li key={p.problem_id}>
+                  <Card
+                    padding="none"
+                    elevation="sm"
+                    className="flex items-center gap-3 px-4 py-3"
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-pop" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-body-sm font-bold text-seed">
+                        {p.point}
+                      </span>
+                      <span className="block truncate text-caption font-medium text-seed/45">
+                        {t("study.wrongMsg")} {p.answer}
+                      </span>
+                    </span>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-7 space-y-2.5">
+          <Button
+            size="lg"
+            fullWidth
+            leftIcon={<RotateCcw size={18} strokeWidth={2.4} />}
+            onClick={onRestart}
+          >
+            {t("study.restart")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="md"
+            fullWidth
+            leftIcon={<Home size={17} strokeWidth={2.4} />}
+            onClick={onClose}
+          >
+            {t("study.backHome")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 공용 ─────────────────────────────────────────────────────
+function CenteredNotice({
+  text,
+  onBack,
+  backLabel,
+}: {
+  text: string;
+  onBack: () => void;
+  backLabel?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-6 text-center">
+      <KiwiMark size={72} />
+      <p className="text-sm font-bold text-seed/60">{text}</p>
+      <button
+        type="button"
+        onClick={onBack}
+        className="min-h-[48px] rounded-2xl bg-kiwi px-6 text-sm font-extrabold text-white shadow-pop transition active:scale-95"
+      >
+        {backLabel ?? t("common.back")}
+      </button>
+    </div>
+  );
+}
+
+function splitParam(raw: string | null): string[] {
+  return raw ? raw.split(",").filter(Boolean) : [];
+}
