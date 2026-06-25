@@ -1,0 +1,36 @@
+{
+  "projectId": "eaf9ddc4-96f0-46d1-a789-bfbd3f1bf6a6",
+  "shape": "package",
+  "pkg": "kiwivoca-frontend",
+  "globalName": "KiwiVoca",
+  "entry": "./frontend/src/components/ui/index.ts",
+  "tsconfig": "tsconfig.json",
+  "buildCmd": "node .design-sync/build-styles.mjs",
+  "cssEntry": ".ds-styles.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "extraEntries": ["../.design-sync/preview-providers.tsx"],
+  "provider": { "component": "PreviewProviders" },
+  "overrides": {
+    "Sheet": { "cardMode": "single", "viewport": "440x560" },
+    "ConfirmSheet": { "cardMode": "single", "viewport": "440x440" },
+    "ToastProvider": { "cardMode": "single", "viewport": "440x320" },
+    "EmptyState": { "cardMode": "column" }
+  },
+  "componentSrcMap": {
+    "Button": "src/components/ui/Button.tsx",
+    "IconButton": "src/components/ui/IconButton.tsx",
+    "SpeakButton": "src/components/ui/SpeakButton.tsx",
+    "TextField": "src/components/ui/TextField.tsx",
+    "Select": "src/components/ui/Select.tsx",
+    "Card": "src/components/ui/Card.tsx",
+    "Badge": "src/components/ui/Badge.tsx",
+    "ProgressBar": "src/components/ui/ProgressBar.tsx",
+    "SegmentedControl": "src/components/ui/SegmentedControl.tsx",
+    "Avatar": "src/components/ui/Avatar.tsx",
+    "Skeleton": "src/components/ui/Skeleton.tsx",
+    "EmptyState": "src/components/ui/EmptyState.tsx",
+    "Sheet": "src/components/ui/Sheet.tsx",
+    "ConfirmSheet": "src/components/ui/ConfirmSheet.tsx",
+    "ToastProvider": "src/components/ui/Toast.tsx"
+  }
+}
