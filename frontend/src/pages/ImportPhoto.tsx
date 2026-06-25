@@ -75,9 +75,8 @@ export default function ImportPhoto() {
     setLangDef(v);
     saveLastLangPair(langTerm, v);
   };
-  const [kind, setKind] = useState<DeckKind>(
-    (params.get("kind") as DeckKind) || "vocab"
-  );
+  // 이 화면은 단어(vocab) 전용 — grammar 진입은 아래 effect에서 /grammar/new로 리다이렉트
+  const kind: DeckKind = "vocab";
   const [fileError, setFileError] = useState<string | null>(null);
 
   // AI 생성 입력 (테마/레벨/개수)
@@ -100,6 +99,19 @@ export default function ImportPhoto() {
   const generate = useGenerateVocab();
   const commit = useCommit();
   const { data: decks } = useDecks();
+
+  // grammar 덱에 카드가 들어가는 경로 차단 — kind=grammar로 들어오면 문법 생성으로 보냄
+  useEffect(() => {
+    if (params.get("kind") === "grammar") {
+      const search = new URLSearchParams();
+      if (presetDeck) search.set("deck", presetDeck);
+      search.set("lang_term", langTerm);
+      search.set("lang_def", langDef);
+      navigate(`/grammar/new?${search.toString()}`, { replace: true });
+    }
+    // 진입 시 1회 판정 — 마운트 시점의 값 사용
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // objectURL 미리보기 — 파일 변경 시 재생성, 언마운트 시 revoke
   useEffect(() => {
@@ -287,7 +299,6 @@ export default function ImportPhoto() {
             fileError={fileError}
             langTerm={langTerm}
             langDef={langDef}
-            kind={kind}
             theme={theme}
             level={level}
             count={count}
@@ -295,7 +306,6 @@ export default function ImportPhoto() {
             onRemove={removeFile}
             onLangTerm={updateLangTerm}
             onLangDef={updateLangDef}
-            onKind={setKind}
             onTheme={setTheme}
             onLevel={setLevel}
             onCount={setCount}
@@ -371,7 +381,6 @@ function UploadStep({
   fileError,
   langTerm,
   langDef,
-  kind,
   theme,
   level,
   count,
@@ -379,7 +388,6 @@ function UploadStep({
   onRemove,
   onLangTerm,
   onLangDef,
-  onKind,
   onTheme,
   onLevel,
   onCount,
@@ -391,7 +399,6 @@ function UploadStep({
   fileError: string | null;
   langTerm: string;
   langDef: string;
-  kind: DeckKind;
   theme: string;
   level: string;
   count: number;
@@ -399,7 +406,6 @@ function UploadStep({
   onRemove: (i: number) => void;
   onLangTerm: (v: string) => void;
   onLangDef: (v: string) => void;
-  onKind: (k: DeckKind) => void;
   onTheme: (v: string) => void;
   onLevel: (v: string) => void;
   onCount: (v: number) => void;
@@ -444,20 +450,6 @@ function UploadStep({
         <p className="mb-3 text-caption font-bold uppercase tracking-wide text-kiwi-700">
           {t("import.settings")}
         </p>
-        {!isAi && (
-          <div className="mb-3">
-            <SegmentedControl<DeckKind>
-              layoutId="import-kind"
-              ariaLabel={t("deck.fieldKind")}
-              value={kind}
-              onChange={onKind}
-              segments={[
-                { value: "vocab", label: t("deck.kindVocab") },
-                { value: "grammar", label: t("deck.kindGrammar") },
-              ]}
-            />
-          </div>
-        )}
         <div className="grid grid-cols-2 gap-2.5">
           <Select
             id="imp-lang-term"

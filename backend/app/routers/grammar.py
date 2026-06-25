@@ -237,6 +237,11 @@ def commit(
         )
         if deck is None:
             raise _DECK_NOT_FOUND
+        if deck.kind != "grammar":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="문법 덱에만 추가할 수 있어요.",
+            )
     else:
         nd = payload.new_deck
         deck = Deck(
