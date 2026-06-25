@@ -593,7 +593,7 @@ function ReviewStep({
         ))}
       </ul>
 
-      {/* 행 추가 */}
+      {/* 행 추가 — 스크롤 영역 안 */}
       <button
         type="button"
         onClick={onAdd}
@@ -603,19 +603,34 @@ function ReviewStep({
         {t("import.addRow")}
       </button>
 
-      {/* 다음 CTA — sticky */}
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-raised pt-1 md:static md:bottom-auto">
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          disabled={validCount === 0}
-          onClick={onContinue}
-        >
-          {t("import.continueCta", { count: validCount })}
-        </Button>
+      {/* 스티키 저장 바가 마지막 행을 가리지 않도록 여백 확보 */}
+      <div className="h-24" />
+
+      {/* 항상 보이는 하단 저장 바 — 추출 개수 + 저장(다음). 스크롤 무관·탭바 위·safe-area */}
+      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-raised md:bottom-0">
+        <div className="border-t border-border bg-surface/95 px-5 pb-3 pt-3 shadow-[0_-6px_20px_rgba(46,58,36,0.08)] backdrop-blur md:pb-3">
+          <div className="mx-auto flex max-w-screen-sm items-center gap-3">
+            {/* 추출/유효 개수 표시 */}
+            <div className="min-w-0 shrink-0">
+              <p className="font-display text-h3 font-bold leading-none text-seed">
+                {validCount}
+              </p>
+              <p className="mt-0.5 text-caption font-bold text-seed/45">
+                {t("import.saveBarCount")}
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              className="flex-1"
+              disabled={validCount === 0}
+              onClick={onContinue}
+            >
+              {t("import.continueCta", { count: validCount })}
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="h-2" />
     </div>
   );
 }

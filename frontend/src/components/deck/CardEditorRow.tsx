@@ -1,7 +1,8 @@
 // 카드 행 — 보기/인라인 편집 토글. 편집 시 term/reading/definition/example 폼.
+// 학습완료 토글(원형 체크) 포함 — 완료 시 약한 dimming + 체크 채움.
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { Card, TextField, Button, IconButton, SpeakButton } from "../ui";
 import type { Card as CardType, UpdateCardPayload } from "../../types/deck";
 
@@ -10,6 +11,7 @@ interface CardEditorRowProps {
   index: number;
   onSave: (id: string | number, payload: UpdateCardPayload) => Promise<void>;
   onDelete: (id: string | number) => void;
+  onToggleLearned?: (id: string | number, next: boolean) => void;
   saving?: boolean;
   langTerm?: string; // term 발음 언어(덱 lang_term)
 }
@@ -19,6 +21,7 @@ export default function CardEditorRow({
   index,
   onSave,
   onDelete,
+  onToggleLearned,
   saving,
   langTerm,
 }: CardEditorRowProps) {
@@ -103,13 +106,43 @@ export default function CardEditorRow({
     );
   }
 
+  const learned = !!card.is_learned;
+
   return (
     <li>
-      <Card padding="sm" className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-kiwi-100 text-caption font-bold text-kiwi-700">
-          {index + 1}
-        </span>
-        <div className="min-w-0 flex-1">
+      <Card
+        padding="sm"
+        className={[
+          "flex items-start gap-3 transition",
+          learned ? "bg-kiwi-50/70 ring-1 ring-kiwi-200" : "",
+        ].join(" ")}
+      >
+        {/* 학습완료 토글 — 원형 체크. 미완료: 인덱스 번호, 완료: 체크 채움. */}
+        {onToggleLearned ? (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={learned}
+            aria-label={
+              learned ? t("card.markUnlearned") : t("card.markLearned")
+            }
+            onClick={() => onToggleLearned(card.id, !learned)}
+            className={[
+              "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-caption font-bold outline-none transition active:scale-90",
+              "focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+              learned
+                ? "bg-kiwi text-white shadow-kiwi-glow"
+                : "bg-kiwi-100 text-kiwi-700 hover:bg-kiwi-200",
+            ].join(" ")}
+          >
+            {learned ? <Check size={18} strokeWidth={3} /> : index + 1}
+          </button>
+        ) : (
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-kiwi-100 text-caption font-bold text-kiwi-700">
+            {index + 1}
+          </span>
+        )}
+        <div className={["min-w-0 flex-1", learned ? "opacity-60" : ""].join(" ")}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="break-words font-display text-base font-bold text-seed">
               {card.term}

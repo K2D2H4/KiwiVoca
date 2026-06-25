@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.card import Card
+from app.models.card_progress import CardProgress
 from app.models.deck import Deck
 from app.models.user import User
 from app.schemas.card import (
@@ -291,15 +292,31 @@ def list_cards(
     deck_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[Card]:
-    """덱의 카드 목록 (position, id 순). 소유자 OR 공개 덱이면 200, 그 외 404."""
+) -> list[CardResponse]:
+    """덱의 카드 목록 (position, id 순). 소유자 OR 공개 덱이면 200, 그 외 404.
+
+    각 카드에 현재 사용자의 학습 완료 여부(is_learned)를 함께 반환한다.
+    진척이 없으면 false. (공개 덱을 비소유자가 볼 때도 자기 진척 기준.)
+    """
     _get_readable_deck(deck_id, current_user, db)
-    return (
-        db.query(Card)
-        .filter(Card.deck_id == deck_id)
+    # 카드 + 현재 사용자 진척 LEFT JOIN (진척 없으면 is_learned=false)
+    rows = db.execute(
+        select(Card, CardProgress.is_learned)
+        .outerjoin(
+            CardProgress,
+            (CardProgress.card_id == Card.id)
+            & (CardProgress.user_id == current_user.id),
+        )
+        .where(Card.deck_id == deck_id)
         .order_by(Card.position.asc(), Card.id.asc())
-        .all()
-    )
+    ).all()
+
+    result: list[CardResponse] = []
+    for card, is_learned in rows:
+        data = CardResponse.model_validate(card)
+        data.is_learned = bool(is_learned)
+        result.append(data)
+    return result
 
 
 def _next_position(deck_id: int, db: Session) -> int:

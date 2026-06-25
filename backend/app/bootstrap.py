@@ -39,10 +39,29 @@ def wait_for_db(max_retries: int = 30, delay: float = 2.0) -> None:
     raise RuntimeError("DB connection failed after retries")
 
 
+def _apply_lightweight_migrations() -> None:
+    """create_all 로 처리되지 않는 '기존 테이블 컬럼 추가'를 idempotent 하게 적용.
+
+    create_all 은 신규 테이블만 만들고 기존 테이블에 컬럼을 추가하지 않는다.
+    Alembic 전환 전까지, ADD COLUMN IF NOT EXISTS 로 안전하게 보강한다.
+    (이미 컬럼이 있으면 no-op — 로컬·운영 부팅 시 매번 실행돼도 안전.)
+    """
+    statements = [
+        # card_progress.is_learned: 학습 완료 수동 체크 컬럼
+        "ALTER TABLE card_progress "
+        "ADD COLUMN IF NOT EXISTS is_learned boolean NOT NULL DEFAULT false",
+    ]
+    with engine.begin() as conn:
+        for sql in statements:
+            conn.execute(text(sql))
+    print("[bootstrap] lightweight migrations applied")
+
+
 def main() -> None:
     _validate_secret_key()
     wait_for_db()
     Base.metadata.create_all(bind=engine)
+    _apply_lightweight_migrations()
     print("[bootstrap] schema ready")
 
 
