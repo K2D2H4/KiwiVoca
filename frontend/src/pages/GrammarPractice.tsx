@@ -55,6 +55,7 @@ export default function GrammarPractice() {
   const {
     mutate: runPractice,
     reset: resetPractice,
+    status: practiceStatus,
     isPending,
     isError,
     isSuccess,
@@ -64,12 +65,10 @@ export default function GrammarPractice() {
   // 옵션 시트 — 미구성 진입 시 자동 오픈
   const [sheetOpen, setSheetOpen] = useState(!configured);
 
-  // 구성되면 즉석 생성 호출(한 번). 옵션/덱이 바뀌면 다시 호출.
-  // POST이므로 명시 호출 — 같은 구성에 중복 호출 방지용 시그니처 추적.
-  const requestedSig = useRef<string | null>(null);
-  useEffect(() => {
-    if (!configured || deckIds.length === 0) return;
-    const sig = JSON.stringify({
+  // 현재 쿼리(덱/필터/옵션) 시그니처 — 같은 구성에서 중복 생성 방지용.
+  const sig = useMemo(() => {
+    if (!configured || deckIds.length === 0) return null;
+    return JSON.stringify({
       deckIds: [...deckIds].sort(),
       levels: [...levels].sort(),
       categories: [...categories].sort(),
@@ -77,7 +76,17 @@ export default function GrammarPractice() {
       limit,
       order,
     });
-    if (requestedSig.current === sig) return;
+  }, [configured, deckIds, levels, categories, scope, limit, order]);
+
+  // 구성되면 즉석 생성 호출. 시그니처가 바뀌었을 때만 새로 요청.
+  // ⚠️ 딥링크(start=1) 직진입 시 행 방지: ref만으로 가드하면
+  //    StrictMode 더블마운트/리셋 시 mutation이 버려져도 ref가 남아 재호출이 막힘.
+  //    → "요청한 sig"와 "mutation이 idle(미시작)"을 함께 보고, idle이면 다시 트리거.
+  const requestedSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (sig == null) return;
+    // 같은 구성에 대해 이미 요청을 보냈고, mutation이 살아있으면(진행/성공/실패) 스킵.
+    if (requestedSig.current === sig && practiceStatus !== "idle") return;
     requestedSig.current = sig;
     runPractice({
       deckIds,
@@ -88,7 +97,8 @@ export default function GrammarPractice() {
       order,
     });
   }, [
-    configured,
+    sig,
+    practiceStatus,
     deckIds,
     levels,
     categories,
@@ -659,8 +669,10 @@ function GrammarResult({
     tier === "perfect" ? "love" : tier === "good" ? "happy" : "neutral";
 
   return (
-    <div className="bg-orchard relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="relative z-raised mx-auto w-full max-w-screen-sm">
+    <div className="bg-orchard relative flex h-[100dvh] flex-col overflow-hidden">
+      {/* 스크롤 영역 — 통계 + (길어질 수 있는) 틀린 문법 복습 목록. 액션바에 가리지 않게 패딩. */}
+      <div className="relative z-raised flex-1 overflow-y-auto px-5 pb-6 pt-[max(2rem,env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-screen-sm">
         <div className="flex flex-col items-center text-center">
           <motion.div
             animate={
@@ -734,7 +746,12 @@ function GrammarResult({
           </div>
         )}
 
-        <div className="mt-7 space-y-2.5">
+        </div>
+      </div>
+
+      {/* 액션바 — 화면 하단 고정. 복습 목록이 길어도 항상 보임(몰입형, 탭바 없음). */}
+      <div className="relative z-raised border-t border-ink-100/70 bg-surface/85 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(46,58,36,0.07)] backdrop-blur-md">
+        <div className="mx-auto w-full max-w-screen-sm space-y-2.5">
           <Button
             size="lg"
             fullWidth

@@ -265,14 +265,14 @@ export default function GrammarOptionsSheet({
           value={scope}
           onChange={setScope}
           segments={[
-            { value: "all", label: t("study.scopeAll") },
+            { value: "all", label: t("study.scopeAllGrammar") },
             { value: "unlearned", label: t("study.scopeUnlearned") },
           ]}
         />
         <p className="mt-2 flex items-center gap-1.5 px-1 text-caption font-bold text-kiwi-700">
           <Sparkles size={13} strokeWidth={2.6} />
           {loading
-            ? t("study.summaryLoading")
+            ? t("grammar.practice.summaryLoading")
             : t("grammar.practice.summaryAvailable", { count: available })}
         </p>
       </div>
