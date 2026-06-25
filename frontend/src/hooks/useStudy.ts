@@ -122,8 +122,10 @@ export function useToggleLearned(deckId: string | number) {
       if (ctx?.prev) qc.setQueryData(cardsKey(deckId), ctx.prev);
     },
     onSettled: () => {
-      // summary 등 학습 통계는 다음 진입 시 최신화
+      // summary/학습세트 캐시 최신화 — 완료 표시 직후 미완료(unlearned) 세션에
+      // 방금 완료한 카드가 stale 캐시로 다시 출제되지 않도록 study/cards도 무효화.
       qc.invalidateQueries({ queryKey: ["study", "summary"] });
+      qc.invalidateQueries({ queryKey: ["study", "cards"] });
     },
   });
 }
