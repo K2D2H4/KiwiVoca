@@ -25,6 +25,20 @@ export interface ExtractParams {
   kind: DeckKind;
 }
 
+// POST /api/import/generate 요청 — 테마 기반 단어 AI 생성
+export interface GenerateVocabParams {
+  lang_term: string;
+  lang_def: string;
+  theme: string;
+  level?: string;
+  count?: number; // 기본 10
+}
+
+// POST /api/import/generate 응답 — extract 와 동일한 후보 형태
+export interface GenerateVocabResult {
+  candidates: ExtractCandidate[];
+}
+
 // commit 시 카드 페이로드 (위치는 백엔드가 순서대로 부여)
 export interface CommitCard {
   term: string;

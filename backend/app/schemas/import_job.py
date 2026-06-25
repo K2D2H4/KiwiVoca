@@ -29,6 +29,22 @@ class ExtractResponse(BaseModel):
     candidates: list[ExtractCandidate]
 
 
+class GenerateVocabRequest(BaseModel):
+    """테마 기반 단어 생성 요청 (자동 커밋 X, 검수용 후보 반환)."""
+
+    lang_term: str = Field(min_length=1, max_length=10)
+    lang_def: str = Field(min_length=1, max_length=10)
+    theme: str = Field(min_length=1, max_length=200)
+    level: str | None = Field(default=None, max_length=50)
+    count: int = Field(default=10, ge=1, le=30)
+
+
+class GenerateVocabResponse(BaseModel):
+    """/import/generate 응답 — 후보 카드 리스트."""
+
+    candidates: list[ExtractCandidate]
+
+
 class CommitNewDeck(BaseModel):
     """commit 시 새 덱을 만들 때의 덱 정보."""
 

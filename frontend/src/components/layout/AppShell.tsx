@@ -1,7 +1,7 @@
 // 앱 셸 — 모바일: 하단 탭바 + 중앙 강조 FAB / 데스크탑(md:): 좌측 사이드바.
 // 보호 라우트들을 이 셸로 감싼다. 본문 하단 패딩으로 탭바 가림 방지.
 import { useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
@@ -19,6 +19,7 @@ import LanguageSwitcher from "../LanguageSwitcher";
 import ThemeToggle from "../ThemeToggle";
 import Avatar from "../ui/Avatar";
 import Sheet from "../ui/Sheet";
+import CreateSheet from "./CreateSheet";
 import { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 
@@ -44,15 +45,14 @@ const SIDEBAR_TABS: TabDef[] = [
   { key: "profile", to: "/profile", icon: User },
 ];
 
-const FAB_TO = "/import";
-
 export default function AppShell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const name = user?.display_name || user?.email?.split("@")[0] || "Kiwi";
-  const addActive = location.pathname.startsWith("/import");
+
+  // 통합 만들기 시트 — FAB/사이드바 "만들기" 공용
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <div className="min-h-[100dvh] bg-cream no-x md:flex">
@@ -97,17 +97,15 @@ export default function AppShell() {
             );
           })}
 
-          {/* 추가 — 사이드바에서는 강조 버튼 */}
-          <NavLink
-            to={FAB_TO}
-            className={[
-              "mt-2 flex items-center gap-3 rounded-2xl px-3.5 py-3 text-body-sm font-bold text-white transition active:scale-[0.98]",
-              addActive ? "bg-kiwi-600 shadow-kiwi-glow" : "bg-kiwi shadow-kiwi-glow hover:bg-kiwi-600",
-            ].join(" ")}
+          {/* 만들기 — 통합 진입(단어/문법 × 직접/사진/AI). 사이드바에서는 강조 버튼 */}
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="mt-2 flex items-center gap-3 rounded-2xl bg-kiwi px-3.5 py-3 text-body-sm font-bold text-white shadow-kiwi-glow transition active:scale-[0.98] hover:bg-kiwi-600"
           >
             <Plus size={22} strokeWidth={2.6} />
-            <span>{t("nav.add")}</span>
-          </NavLink>
+            <span>{t("create.title")}</span>
+          </button>
         </nav>
 
         <div className="mt-4 border-t border-border pt-4">
@@ -157,25 +155,25 @@ export default function AppShell() {
           </ul>
         </div>
 
-        {/* 중앙 FAB — 탭바 위로 띄움 (마지막 렌더 = 최상단) */}
+        {/* 중앙 FAB — 통합 만들기 시트 토글 (마지막 렌더 = 최상단) */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-raised flex -translate-y-1/2 justify-center">
           <motion.button
             type="button"
-            onClick={() => navigate(FAB_TO)}
-            aria-label={t("nav.add")}
+            onClick={() => setCreateOpen(true)}
+            aria-label={t("create.title")}
             whileTap={{ scale: 0.9 }}
             transition={{ type: "spring", stiffness: 500, damping: 26 }}
             className={[
               "pointer-events-auto flex items-center justify-center rounded-full text-white outline-none ring-4 ring-cream",
               "focus-visible:ring-kiwi-300",
-              addActive
+              createOpen
                 ? "bg-kiwi-600 shadow-kiwi-glow"
                 : "bg-kiwi shadow-kiwi-glow",
             ].join(" ")}
             style={{ height: 60, width: 60 }}
           >
             <motion.span
-              animate={{ rotate: addActive ? 135 : 0 }}
+              animate={{ rotate: createOpen ? 135 : 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 24 }}
             >
               <Plus size={28} strokeWidth={2.8} />
@@ -183,6 +181,9 @@ export default function AppShell() {
           </motion.button>
         </div>
       </nav>
+
+      {/* 통합 만들기 시트 (모바일 FAB + 데스크탑 사이드바 공용) */}
+      <CreateSheet open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

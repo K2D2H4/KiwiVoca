@@ -24,11 +24,14 @@ from app.schemas.import_job import (
     CommitResponse,
     ExtractCandidate,
     ExtractResponse,
+    GenerateVocabRequest,
+    GenerateVocabResponse,
 )
 from app.services.gemini_service import (
     SUPPORTED_IMAGE_MIME,
     ExtractionError,
     extract_cards_from_images,
+    generate_vocab,
 )
 from app.utils.dependencies import get_current_user
 
@@ -137,6 +140,31 @@ async def extract(
     )
 
 
+@router.post("/generate", response_model=GenerateVocabResponse)
+async def generate(
+    payload: GenerateVocabRequest,
+    current_user: User = Depends(get_current_user),
+) -> GenerateVocabResponse:
+    """테마 기반으로 단어 카드 후보를 생성한다 (미저장). 저장은 /commit 재사용."""
+    try:
+        candidates = await run_in_threadpool(
+            generate_vocab,
+            lang_term=payload.lang_term,
+            lang_def=payload.lang_def,
+            theme=payload.theme,
+            level=payload.level,
+            count=payload.count,
+        )
+    except ExtractionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message
+        ) from exc
+
+    return GenerateVocabResponse(
+        candidates=[ExtractCandidate(**c) for c in candidates]
+    )
+
+
 @router.post("/commit", response_model=CommitResponse, status_code=status.HTTP_201_CREATED)
 def commit(
     payload: CommitRequest,
@@ -159,6 +187,11 @@ def commit(
             # 존재 여부 노출 회피 — 404
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="덱을 찾을 수 없습니다."
+            )
+        if deck.kind != "vocab":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="단어 덱에만 추가할 수 있어요.",
             )
     else:
         nd = payload.new_deck

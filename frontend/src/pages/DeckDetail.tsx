@@ -7,7 +7,9 @@ import {
   ArrowRight,
   Camera,
   Check,
+  Copy,
   Globe,
+  GraduationCap,
   Layers,
   Link2,
   Lock,
@@ -29,11 +31,16 @@ import {
   useToast,
 } from "../components/ui";
 import { langLabel } from "../lib/languages";
-import { useDeck, useDeleteDeck, deckKey } from "../hooks/useDecks";
+import { useDeck, useDeleteDeck, useCopyDeck, deckKey } from "../hooks/useDecks";
 import { useCards, useCardMutations, cardsKey } from "../hooks/useCards";
 import { useToggleLearned } from "../hooks/useStudy";
 import { useTogglePublic } from "../hooks/useSharing";
+import {
+  useGrammarItems,
+  useToggleGrammarLearned,
+} from "../hooks/useGrammar";
 import type { UpdateCardPayload } from "../types/deck";
+import type { GrammarItem } from "../types/grammar";
 
 export default function DeckDetail() {
   const { t } = useTranslation();
@@ -47,12 +54,19 @@ export default function DeckDetail() {
   const [deleting, setDeleting] = useState(false);
   const { data: deck, isLoading: deckLoading, isError: deckError } =
     useDeck(id, { enabled: !deleting });
+  const isGrammar = deck?.kind === "grammar";
   const { data: cards, isLoading: cardsLoading } = useCards(id, {
-    enabled: !deleting,
+    enabled: !deleting && deck != null && !isGrammar,
+  });
+  // 문법 덱이면 문법 항목을 별도 조회 (card_count=0 이므로 항목 배열 길이로 카운트)
+  const { data: grammarItems, isLoading: grammarLoading } = useGrammarItems(id, {
+    enabled: !deleting && isGrammar,
   });
   const deleteDeck = useDeleteDeck();
+  const copyDeck = useCopyDeck();
   const { create, update, remove } = useCardMutations(id);
   const toggleLearned = useToggleLearned(id);
+  const toggleGrammarLearned = useToggleGrammarLearned(id);
   const togglePublic = useTogglePublic(id);
 
   // 공유 링크 복사 완료 표시 (잠깐 체크 아이콘)
@@ -64,18 +78,26 @@ export default function DeckDetail() {
     string | number | null
   >(null);
 
-  // 사진 가져오기 커밋 직후 토스트 (location.state.imported)
-  const importedCount = (location.state as { imported?: number } | null)
-    ?.imported;
+  // 사진 가져오기/문법 커밋 직후 토스트 (location.state.imported | grammarImported)
+  const navState = location.state as
+    | { imported?: number; grammarImported?: number }
+    | null;
+  const importedCount = navState?.imported;
+  const grammarImportedCount = navState?.grammarImported;
   // StrictMode 이중 호출/재렌더에도 1회만 — replaceState는 router state를 못 지움
   const importToastShown = useRef(false);
   useEffect(() => {
-    if (!importedCount || importToastShown.current) return;
-    importToastShown.current = true;
-    toast.success(t("import.committed", { count: importedCount }));
-    // state 소비 — 새로고침/뒤로가기 시 재노출 방지
-    window.history.replaceState({}, "");
-  }, [importedCount, toast, t]);
+    if (importToastShown.current) return;
+    if (importedCount) {
+      importToastShown.current = true;
+      toast.success(t("import.committed", { count: importedCount }));
+      window.history.replaceState({}, "");
+    } else if (grammarImportedCount) {
+      importToastShown.current = true;
+      toast.success(t("grammar.committed", { count: grammarImportedCount }));
+      window.history.replaceState({}, "");
+    }
+  }, [importedCount, grammarImportedCount, toast, t]);
 
   // 카드 추가 폼 상태
   const [term, setTerm] = useState("");
@@ -119,6 +141,25 @@ export default function DeckDetail() {
       { card_id: cardId, is_learned: next },
       { onError: () => toast.error(t("card.learnedError")) }
     );
+  };
+
+  // 문법 항목 학습완료 토글 — 낙관적 업데이트(훅 내부), 실패 시 롤백+토스트
+  const onToggleGrammarLearned = (itemId: number, next: boolean) => {
+    toggleGrammarLearned.mutate(
+      { item_id: itemId, is_learned: next },
+      { onError: () => toast.error(t("card.learnedError")) }
+    );
+  };
+
+  // 덱 복사 — 카드+문법까지 복제, 진척 미복사 → 새 덱으로 이동
+  const onCopyDeck = async () => {
+    try {
+      const newDeck = await copyDeck.mutateAsync(id);
+      toast.success(t("deck.copiedToast"));
+      navigate(`/decks/${newDeck.id}`, { replace: true });
+    } catch {
+      toast.error(t("deck.copyError"));
+    }
   };
 
   const onDeleteDeck = async () => {
@@ -176,9 +217,14 @@ export default function DeckDetail() {
     );
   }
 
-  const cardCount = cards?.length ?? deck?.card_count ?? 0;
+  // 단어 덱: 카드 수 / 문법 덱: 항목 수(card_count=0 이므로 항목 배열 길이 사용)
+  const cardCount = isGrammar
+    ? grammarItems?.length ?? 0
+    : cards?.length ?? deck?.card_count ?? 0;
   // 학습완료 요약 — 완료 N / 총 M
-  const learnedCount = cards?.filter((c) => c.is_learned).length ?? 0;
+  const learnedCount = isGrammar
+    ? grammarItems?.filter((it) => it.progress.is_learned).length ?? 0
+    : cards?.filter((c) => c.is_learned).length ?? 0;
 
   return (
     <div className="min-h-[100dvh]">
@@ -187,14 +233,24 @@ export default function DeckDetail() {
         onBack={() => navigate("/")}
         right={
           deck && (
-            <IconButton
-              label={t("common.delete")}
-              variant="ghost"
-              className="text-pop hover:bg-pop-soft"
-              onClick={() => setConfirmDeleteDeck(true)}
-            >
-              <Trash2 size={20} />
-            </IconButton>
+            <div className="flex items-center gap-0.5">
+              <IconButton
+                label={t("deck.copy")}
+                variant="ghost"
+                disabled={copyDeck.isPending}
+                onClick={onCopyDeck}
+              >
+                <Copy size={20} />
+              </IconButton>
+              <IconButton
+                label={t("common.delete")}
+                variant="ghost"
+                className="text-pop hover:bg-pop-soft"
+                onClick={() => setConfirmDeleteDeck(true)}
+              >
+                <Trash2 size={20} />
+              </IconButton>
+            </div>
           )
         }
       />
@@ -224,7 +280,9 @@ export default function DeckDetail() {
             )}
             <p className="mt-3 flex items-center gap-1.5 text-body-sm font-bold text-white/85">
               <Layers size={15} />
-              {t("deck.cardCount", { count: cardCount })}
+              {isGrammar
+                ? t("grammar.itemCount", { count: cardCount })
+                : t("deck.cardCount", { count: cardCount })}
             </p>
           </section>
         ) : null}
@@ -308,104 +366,174 @@ export default function DeckDetail() {
           </section>
         )}
 
-        {/* 주요 액션 — 학습 시작(눈에 띄게) + 사진으로 */}
+        {/* 주요 액션 — 학습/연습 시작 + 추가. 단어/문법 분기 */}
         <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-[1.6fr_1fr]">
-          <Button
-            variant="danger"
-            size="lg"
-            fullWidth
-            leftIcon={<Play size={20} fill="currentColor" />}
-            disabled={cardCount === 0}
-            onClick={() => setModeSheetOpen(true)}
-          >
-            {t("deck.startStudy")}
-          </Button>
-          {deck && (
+          {isGrammar ? (
             <Button
-              variant="secondary"
+              variant="danger"
               size="lg"
               fullWidth
-              leftIcon={<Camera size={18} />}
+              leftIcon={<Play size={20} fill="currentColor" />}
+              disabled={cardCount === 0}
               onClick={() =>
-                navigate(
-                  `/import?deck=${id}&lang_term=${deck.lang_term}&lang_def=${deck.lang_def}&kind=${deck.kind}`
-                )
+                navigate(`/grammar/practice?decks=${id}`)
               }
             >
-              {t("import.fromPhotoShort")}
+              {t("grammar.startPractice")}
+            </Button>
+          ) : (
+            <Button
+              variant="danger"
+              size="lg"
+              fullWidth
+              leftIcon={<Play size={20} fill="currentColor" />}
+              disabled={cardCount === 0}
+              onClick={() => setModeSheetOpen(true)}
+            >
+              {t("deck.startStudy")}
             </Button>
           )}
+          {deck &&
+            (isGrammar ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                leftIcon={<GraduationCap size={18} />}
+                onClick={() =>
+                  navigate(
+                    `/grammar/new?deck=${id}&lang_term=${deck.lang_term}&lang_def=${deck.lang_def}`
+                  )
+                }
+              >
+                {t("grammar.addShort")}
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                leftIcon={<Camera size={18} />}
+                onClick={() =>
+                  navigate(
+                    `/import?deck=${id}&lang_term=${deck.lang_term}&lang_def=${deck.lang_def}&kind=${deck.kind}`
+                  )
+                }
+              >
+                {t("import.fromPhotoShort")}
+              </Button>
+            ))}
         </div>
 
-        {/* 카드 추가 폼 */}
-        <Card padding="sm" className="mt-5">
-          <p className="mb-2.5 text-caption font-bold uppercase tracking-wide text-kiwi-700">
-            {t("card.addTitle")}
-          </p>
-          <form onSubmit={onAdd}>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <AddInput
-                value={term}
-                onChange={setTerm}
-                placeholder={t("card.term")}
-                required
-              />
-              <AddInput
-                value={reading}
-                onChange={setReading}
-                placeholder={t("card.reading")}
-              />
-              <div className="sm:col-span-2">
+        {/* 카드 추가 폼 — 단어 덱에서만 */}
+        {!isGrammar && (
+          <Card padding="sm" className="mt-5">
+            <p className="mb-2.5 text-caption font-bold uppercase tracking-wide text-kiwi-700">
+              {t("card.addTitle")}
+            </p>
+            <form onSubmit={onAdd}>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <AddInput
-                  value={definition}
-                  onChange={setDefinition}
-                  placeholder={t("card.definition")}
+                  value={term}
+                  onChange={setTerm}
+                  placeholder={t("card.term")}
                   required
                 />
-              </div>
-              <div className="sm:col-span-2">
                 <AddInput
-                  value={example}
-                  onChange={setExample}
-                  placeholder={t("card.example")}
+                  value={reading}
+                  onChange={setReading}
+                  placeholder={t("card.reading")}
                 />
+                <div className="sm:col-span-2">
+                  <AddInput
+                    value={definition}
+                    onChange={setDefinition}
+                    placeholder={t("card.definition")}
+                    required
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <AddInput
+                    value={example}
+                    onChange={setExample}
+                    placeholder={t("card.example")}
+                  />
+                </div>
               </div>
-            </div>
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              className="mt-3"
-              loading={create.isPending}
-              disabled={!canAdd}
-            >
-              {t("card.addCta")}
-            </Button>
-          </form>
-        </Card>
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                className="mt-3"
+                loading={create.isPending}
+                disabled={!canAdd}
+              >
+                {t("card.addCta")}
+              </Button>
+            </form>
+          </Card>
+        )}
 
-        {/* 카드 목록 */}
+        {/* 목록 — 학습완료 요약 + 단어/문법 분기 */}
         <div className="mt-5 pb-4">
-          {/* 학습완료 요약 — 완료 N / 총 M + 진행 막대 */}
-          {cards && cards.length > 0 && (
-            <div className="mb-3 flex items-center gap-3 px-1">
-              <p className="shrink-0 text-caption font-bold uppercase tracking-wide text-seed/45">
-                {t("card.learnedSummary", {
-                  learned: learnedCount,
-                  total: cards.length,
-                })}
-              </p>
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100">
+          {/* 학습완료 요약 — 완료 N / 총 M + 진행 막대 (발견성↑ 카드) */}
+          {cardCount > 0 && (
+            <div className="mb-3 rounded-2xl bg-surface p-3.5 shadow-soft ring-1 ring-border">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-caption font-bold uppercase tracking-wide text-seed/45">
+                  {t("card.progressLabel")}
+                </span>
+                <span className="font-display text-base font-extrabold text-kiwi-700">
+                  {learnedCount}
+                  <span className="text-body-sm font-bold text-seed/40">
+                    {" / "}
+                    {cardCount}
+                  </span>
+                </span>
+              </div>
+              <span className="mt-2 block h-2 overflow-hidden rounded-full bg-ink-100">
                 <span
                   className="block h-full rounded-full bg-kiwi transition-[width] duration-300"
                   style={{
-                    width: `${cards.length ? (learnedCount / cards.length) * 100 : 0}%`,
+                    width: `${cardCount ? (learnedCount / cardCount) * 100 : 0}%`,
                   }}
                 />
               </span>
             </div>
           )}
-          {cardsLoading ? (
+
+          {isGrammar ? (
+            // ── 문법 항목 리스트 ──
+            grammarLoading ? (
+              <ul className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <li key={i}>
+                    <Skeleton className="h-28 w-full" rounded="xl" />
+                  </li>
+                ))}
+              </ul>
+            ) : grammarItems && grammarItems.length > 0 ? (
+              <ul className="space-y-3">
+                {grammarItems.map((item, i) => (
+                  <GrammarItemRow
+                    key={item.id}
+                    item={item}
+                    index={i}
+                    onToggleLearned={onToggleGrammarLearned}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <Card padding="md">
+                <EmptyState
+                  mood="sleepy"
+                  compact
+                  title={t("grammar.deckEmptyHint")}
+                />
+              </Card>
+            )
+          ) : // ── 단어 카드 리스트 ──
+          cardsLoading ? (
             <ul className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={i}>
@@ -430,11 +558,7 @@ export default function DeckDetail() {
             </ul>
           ) : (
             <Card padding="md">
-              <EmptyState
-                mood="sleepy"
-                compact
-                title={t("card.emptyHint")}
-              />
+              <EmptyState mood="sleepy" compact title={t("card.emptyHint")} />
             </Card>
           )}
         </div>
@@ -501,5 +625,94 @@ function AddInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder + (required ? " *" : "")}
     />
+  );
+}
+
+// 문법 항목 행 — point + level/category 뱃지 + explanation + example + 문제 미리보기 + 학습완료 토글
+function GrammarItemRow({
+  item,
+  index,
+  onToggleLearned,
+}: {
+  item: GrammarItem;
+  index: number;
+  onToggleLearned: (itemId: number, next: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const learned = item.progress.is_learned;
+  const checkId = `glearn-${item.id}`;
+
+  return (
+    <li>
+      <Card
+        padding="sm"
+        className={learned ? "ring-1 ring-kiwi-300" : undefined}
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 shrink-0 text-caption font-bold text-seed/35">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-body font-bold text-seed">
+              {item.point}
+            </p>
+            {(item.level || item.category) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {item.level && (
+                  <Badge tone="kiwi" size="sm">
+                    {item.level}
+                  </Badge>
+                )}
+                {item.category && (
+                  <Badge tone="info" size="sm">
+                    {item.category}
+                  </Badge>
+                )}
+              </div>
+            )}
+            <p className="mt-2 text-body-sm text-seed/70">{item.explanation}</p>
+            {item.example && (
+              <p className="mt-1.5 rounded-xl bg-cream px-3 py-2 text-body-sm italic text-seed/60">
+                {item.example}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 학습완료 토글 — 직관적 체크박스 + 라벨 (≥44px 터치) */}
+        <div className="mt-2.5 border-t border-border pt-2.5">
+          <label
+            htmlFor={checkId}
+            className="flex min-h-[44px] cursor-pointer select-none items-center gap-2.5"
+          >
+            <span
+              className={[
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition",
+                learned
+                  ? "border-kiwi bg-kiwi text-white"
+                  : "border-ink-300 bg-surface text-transparent",
+              ].join(" ")}
+            >
+              <Check size={15} strokeWidth={3} />
+            </span>
+            <input
+              id={checkId}
+              type="checkbox"
+              className="sr-only"
+              checked={learned}
+              onChange={(e) => onToggleLearned(item.id, e.target.checked)}
+            />
+            <span
+              className={[
+                "text-body-sm font-bold",
+                learned ? "text-kiwi-700" : "text-seed/55",
+              ].join(" ")}
+            >
+              {learned ? t("card.markUnlearned") : t("card.markLearned")}
+            </span>
+          </label>
+        </div>
+      </Card>
+    </li>
   );
 }

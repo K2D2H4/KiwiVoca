@@ -12,6 +12,8 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_progress import CardProgress
 from app.models.deck import Deck
+from app.models.grammar_item import GrammarItem
+from app.models.grammar_progress import GrammarProgress
 from app.models.user import User
 from app.schemas.card import (
     CardBulkRequest,
@@ -21,9 +23,14 @@ from app.schemas.card import (
 )
 from app.schemas.deck import (
     DeckCreate,
+    DeckMergeRequest,
     DeckResponse,
     DeckUpdate,
     PublicDeckResponse,
+)
+from app.schemas.grammar import (
+    GrammarItemResponse,
+    GrammarProgressInfo,
 )
 from app.utils.dependencies import get_current_user
 
@@ -71,14 +78,78 @@ def _get_owned_card(card_id: int, user: User, db: Session) -> Card:
 
 
 def _deck_card_count(deck_id: int, db: Session) -> int:
-    """단일 덱의 카드 수."""
+    """단일 덱의 단어 카드 수."""
     return db.query(func.count(Card.id)).filter(Card.deck_id == deck_id).scalar() or 0
 
 
-def _deck_to_response(deck: Deck, card_count: int) -> DeckResponse:
-    """ORM 덱 + 카드 수 → 응답 스키마."""
+def _deck_grammar_count(deck_id: int, db: Session) -> int:
+    """단일 덱의 문법 항목 수."""
+    return (
+        db.query(func.count(GrammarItem.id))
+        .filter(GrammarItem.deck_id == deck_id)
+        .scalar()
+        or 0
+    )
+
+
+def _copy_deck_contents(source: Deck, new_deck_id: int, db: Session) -> None:
+    """원본 덱의 내용을 kind 에 맞게 새 덱으로 복사.
+
+    vocab 이면 카드만, grammar 이면 문법 항목만 복사한다(연습문제는 더 이상 저장하지 않음).
+    진척(card_progress/grammar_progress)은 복사하지 않는다. new_deck.flush() 후 호출.
+    """
+    if source.kind == "grammar":
+        # 문법 항목만 복사 (position 유지)
+        source_items = (
+            db.query(GrammarItem)
+            .filter(GrammarItem.deck_id == source.id)
+            .order_by(GrammarItem.position.asc(), GrammarItem.id.asc())
+            .all()
+        )
+        db.add_all(
+            [
+                GrammarItem(
+                    deck_id=new_deck_id,
+                    point=gi.point,
+                    explanation=gi.explanation,
+                    example=gi.example,
+                    level=gi.level,
+                    category=gi.category,
+                    position=gi.position,
+                )
+                for gi in source_items
+            ]
+        )
+    else:
+        # 단어 카드만 복사 (position 유지)
+        source_cards = (
+            db.query(Card)
+            .filter(Card.deck_id == source.id)
+            .order_by(Card.position.asc(), Card.id.asc())
+            .all()
+        )
+        db.add_all(
+            [
+                Card(
+                    deck_id=new_deck_id,
+                    term=c.term,
+                    reading=c.reading,
+                    definition=c.definition,
+                    example=c.example,
+                    position=c.position,
+                )
+                for c in source_cards
+            ]
+        )
+
+
+def _deck_to_response(
+    deck: Deck, card_count: int, grammar_count: int = 0
+) -> DeckResponse:
+    """ORM 덱 + 카드 수 + 문법 항목 수 → 응답 스키마."""
     data = DeckResponse.model_validate(deck)
     data.card_count = card_count
+    data.grammar_count = grammar_count
     return data
 
 
@@ -99,7 +170,7 @@ def list_decks(
     if not decks:
         return []
 
-    # N+1 회피: 내 덱들의 카드 수를 한 번에 집계
+    # N+1 회피: 내 덱들의 카드 수 / 문법 항목 수를 각각 한 번에 집계
     deck_ids = [d.id for d in decks]
     counts = dict(
         db.execute(
@@ -108,7 +179,17 @@ def list_decks(
             .group_by(Card.deck_id)
         ).all()
     )
-    return [_deck_to_response(d, counts.get(d.id, 0)) for d in decks]
+    grammar_counts = dict(
+        db.execute(
+            select(GrammarItem.deck_id, func.count(GrammarItem.id))
+            .where(GrammarItem.deck_id.in_(deck_ids))
+            .group_by(GrammarItem.deck_id)
+        ).all()
+    )
+    return [
+        _deck_to_response(d, counts.get(d.id, 0), grammar_counts.get(d.id, 0))
+        for d in decks
+    ]
 
 
 @router.get("/decks/public", response_model=list[PublicDeckResponse])
@@ -197,7 +278,9 @@ def get_deck(
     카드 목록은 GET /decks/{id}/cards 로 별도 조회.
     """
     deck = _get_readable_deck(deck_id, current_user, db)
-    return _deck_to_response(deck, _deck_card_count(deck.id, db))
+    return _deck_to_response(
+        deck, _deck_card_count(deck.id, db), _deck_grammar_count(deck.id, db)
+    )
 
 
 @router.patch("/decks/{deck_id}", response_model=DeckResponse)
@@ -216,7 +299,9 @@ def update_deck(
 
     db.commit()
     db.refresh(deck)
-    return _deck_to_response(deck, _deck_card_count(deck.id, db))
+    return _deck_to_response(
+        deck, _deck_card_count(deck.id, db), _deck_grammar_count(deck.id, db)
+    )
 
 
 @router.delete("/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -243,7 +328,8 @@ def copy_deck(
 ) -> DeckResponse:
     """공개 덱(또는 본인 덱)을 현재 사용자의 새 덱으로 복제.
 
-    덱 메타 + 카드 전부 복사한다. 새 덱은 is_public=false, 진척(card_progress)은 복사하지 않는다.
+    덱 메타 + 카드(vocab) + 문법 항목·문제(grammar) 전부 복사한다.
+    새 덱은 is_public=false, 진척(card_progress/grammar_progress)은 복사하지 않는다.
     비공개 + 비소유 원본은 404.
     """
     source = _get_readable_deck(deck_id, current_user, db)
@@ -261,28 +347,136 @@ def copy_deck(
     db.add(new_deck)
     db.flush()  # new_deck.id 확보
 
-    # 2) 원본 카드 전부 복사 (position 유지)
-    source_cards = (
-        db.query(Card)
-        .filter(Card.deck_id == source.id)
-        .order_by(Card.position.asc(), Card.id.asc())
-        .all()
-    )
-    new_cards = [
-        Card(
-            deck_id=new_deck.id,
-            term=c.term,
-            reading=c.reading,
-            definition=c.definition,
-            example=c.example,
-            position=c.position,
-        )
-        for c in source_cards
-    ]
-    db.add_all(new_cards)
+    # 2) kind 에 맞는 내용 복사 (vocab=카드 / grammar=문법 항목)
+    _copy_deck_contents(source, new_deck.id, db)
+
     db.commit()
     db.refresh(new_deck)
-    return _deck_to_response(new_deck, len(new_cards))
+    return _deck_to_response(
+        new_deck,
+        _deck_card_count(new_deck.id, db),
+        _deck_grammar_count(new_deck.id, db),
+    )
+
+
+@router.post(
+    "/decks/merge",
+    response_model=DeckResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def merge_decks(
+    payload: DeckMergeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DeckResponse:
+    """여러 덱을 새 덱 하나로 병합 복사.
+
+    병합은 같은 kind 끼리만 허용한다(단어 덱끼리 OR 문법 덱끼리). 섞이면 400.
+    소유 또는 공개 읽기 가능한 덱만 허용하며, 하나라도 불가하면 404.
+    새 덱 kind 는 그 공통 kind. vocab 이면 카드만, grammar 면 문법 항목만 복사한다.
+    진척은 복사하지 않고 새 덱은 is_public=false.
+    """
+    # 중복 제거하며 입력 순서 유지
+    seen: set[int] = set()
+    ordered_ids: list[int] = []
+    for did in payload.deck_ids:
+        if did not in seen:
+            seen.add(did)
+            ordered_ids.append(did)
+
+    # 모든 원본이 읽기 가능(소유 OR 공개)한지 검증 — 하나라도 불가면 404
+    sources: list[Deck] = []
+    for did in ordered_ids:
+        sources.append(_get_readable_deck(did, current_user, db))
+
+    # 같은 kind 끼리만 병합 가능 — 섞이면 400
+    kinds = {s.kind for s in sources}
+    if len(kinds) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="단어 덱과 문법 덱은 함께 합칠 수 없어요.",
+        )
+
+    # 새 덱 메타: 언어는 첫 덱 기준, kind 는 공통 kind
+    first = sources[0]
+    new_deck = Deck(
+        user_id=current_user.id,
+        title=payload.title,
+        description=payload.description,
+        lang_term=first.lang_term,
+        lang_def=first.lang_def,
+        kind=first.kind,
+        is_public=False,
+    )
+    db.add(new_deck)
+    db.flush()  # new_deck.id 확보
+
+    # 선택 덱들의 내용을 입력 순서대로 복사 (kind 에 맞게)
+    for source in sources:
+        _copy_deck_contents(source, new_deck.id, db)
+
+    db.commit()
+    db.refresh(new_deck)
+    return _deck_to_response(
+        new_deck,
+        _deck_card_count(new_deck.id, db),
+        _deck_grammar_count(new_deck.id, db),
+    )
+
+
+@router.get("/decks/{deck_id}/grammar", response_model=list[GrammarItemResponse])
+def list_grammar_items(
+    deck_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[GrammarItemResponse]:
+    """덱의 문법 항목 목록 (position 순). 연습문제는 포함하지 않는다.
+
+    소유자 OR 공개 덱이면 200, 그 외 404. 각 항목에 현재 사용자 진척을 포함한다.
+    """
+    _get_readable_deck(deck_id, current_user, db)
+
+    # 항목 + 현재 사용자 진척 LEFT JOIN
+    rows = db.execute(
+        select(GrammarItem, GrammarProgress)
+        .outerjoin(
+            GrammarProgress,
+            (GrammarProgress.grammar_item_id == GrammarItem.id)
+            & (GrammarProgress.user_id == current_user.id),
+        )
+        .where(GrammarItem.deck_id == deck_id)
+        .order_by(GrammarItem.position.asc(), GrammarItem.id.asc())
+    ).all()
+
+    result: list[GrammarItemResponse] = []
+    for item, progress in rows:
+        info = (
+            GrammarProgressInfo(
+                box=progress.box,
+                correct_count=progress.correct_count,
+                wrong_count=progress.wrong_count,
+                is_learned=progress.is_learned,
+                last_studied_at=progress.last_studied_at,
+            )
+            if progress is not None
+            else GrammarProgressInfo(
+                box=0, correct_count=0, wrong_count=0, is_learned=False, last_studied_at=None
+            )
+        )
+        result.append(
+            GrammarItemResponse(
+                id=item.id,
+                deck_id=item.deck_id,
+                point=item.point,
+                explanation=item.explanation,
+                example=item.example,
+                level=item.level,
+                category=item.category,
+                position=item.position,
+                progress=info,
+            )
+        )
+    return result
 
 
 # ----------------------------- 카드 -----------------------------

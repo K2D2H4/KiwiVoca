@@ -1,12 +1,12 @@
-// 단어장 추가 — 사진 추출 또는 테마 AI 생성 → (Gemini 로딩) → 검수/편집 → 커밋.
-// 진입 시 ?method=photo|ai (통합 만들기 시트에서 전달, 기본 photo).
-// 모바일 우선: 풀폭 스텝, 카메라 업로드, 바텀 sticky CTA, 커밋은 바텀시트.
+// 문법 만들기 — 방식(직접/사진/AI) → 입력 → (Gemini 추출/생성) → 항목 검수/편집 → 커밋.
+// 연습문제는 연습 시 즉석 생성되므로 여기서는 "항목"(point/explanation/example/level/category)만 다룬다.
+// 진입 시 ?method= 로 방식 결정(통합 만들기 시트에서 전달). direct 면 빈 항목부터 바로 검수.
+// 모바일 우선: 풀폭 스텝, 카메라 업로드, 바텀 sticky 저장 바, 커밋은 바텀시트.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Camera,
-  Check,
   Image as ImageIcon,
   Plus,
   Sparkles,
@@ -30,39 +30,71 @@ import {
 } from "../components/ui";
 import { LANG_OPTIONS, getLastLangPair, saveLastLangPair } from "../lib/languages";
 import { useDecks } from "../hooks/useDecks";
-import { useExtract, useGenerateVocab, useCommit } from "../hooks/useImport";
-import type { DeckKind } from "../types/deck";
-import type { CommitCard, CommitPayload, ExtractCandidate } from "../types/import";
+import {
+  useExtractGrammar,
+  useGenerateGrammar,
+  useCommitGrammar,
+} from "../hooks/useGrammar";
+import type {
+  GrammarCommitPayload,
+  GrammarItemCandidate,
+} from "../types/grammar";
 
 const MAX_FILES = 8;
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB / 장
 
-// 검수 단계에서 행에 안정적인 key를 주기 위한 래퍼
-interface DraftRow extends ExtractCandidate {
+// 항목에 안정적인 key 부여 (리스트 재렌더 안정성)
+let seq = 0;
+const nextKey = () => `g${seq++}`;
+
+// 검수 단계 드래프트 — 항목만(연습문제 없음)
+interface DraftItem {
   _key: string;
+  point: string;
+  explanation: string;
+  example: string;
+  level: string;
+  category: string;
 }
 
-let rowSeq = 0;
-const nextKey = () => `r${rowSeq++}`;
+type Method = "direct" | "photo" | "ai";
+type Step = "input" | "review";
 
-type Step = "upload" | "review";
-type Method = "photo" | "ai";
+// 후보 → 드래프트(키 부여). 백엔드가 problems 없이 항목만 반환.
+const toDraft = (c: GrammarItemCandidate): DraftItem => ({
+  _key: nextKey(),
+  point: c.point ?? "",
+  explanation: c.explanation ?? "",
+  example: c.example ?? "",
+  level: c.level ?? "",
+  category: c.category ?? "",
+});
 
-export default function ImportPhoto() {
+const emptyItem = (): DraftItem => ({
+  _key: nextKey(),
+  point: "",
+  explanation: "",
+  example: "",
+  level: "",
+  category: "",
+});
+
+export default function GrammarCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
 
   const presetDeck = params.get("deck") ?? "";
-  const method: Method = params.get("method") === "ai" ? "ai" : "photo";
+  const method: Method = ((): Method => {
+    const m = params.get("method");
+    return m === "photo" || m === "direct" || m === "ai" ? m : "ai";
+  })();
 
-  const [step, setStep] = useState<Step>("upload");
+  // 직접 입력은 입력 스텝 없이 빈 항목으로 바로 검수
+  const [step, setStep] = useState<Step>(method === "direct" ? "review" : "input");
 
-  // 스텝1: 파일 + 설정
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  // URL 파라미터 우선, 없으면 마지막 사용 언어쌍 복원
+  // 공통 언어 설정 — URL 파라미터 우선, 없으면 마지막 사용 언어쌍 복원
   const lastLang = getLastLangPair();
   const [langTerm, setLangTerm] = useState(params.get("lang_term") || lastLang.term);
   const [langDef, setLangDef] = useState(params.get("lang_def") || lastLang.def);
@@ -75,19 +107,23 @@ export default function ImportPhoto() {
     setLangDef(v);
     saveLastLangPair(langTerm, v);
   };
-  // 이 화면은 단어(vocab) 전용 — grammar 진입은 아래 effect에서 /grammar/new로 리다이렉트
-  const kind: DeckKind = "vocab";
+
+  // 사진 입력
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
 
-  // AI 생성 입력 (테마/레벨/개수)
-  const [theme, setTheme] = useState("");
+  // AI 입력
   const [level, setLevel] = useState("");
-  const [count, setCount] = useState(10);
+  const [topic, setTopic] = useState("");
+  const [count, setCount] = useState(5);
 
-  // 스텝2: 후보 행
-  const [rows, setRows] = useState<DraftRow[]>([]);
+  // 검수 항목 — 직접 입력이면 빈 항목 하나로 시작
+  const [items, setItems] = useState<DraftItem[]>(
+    method === "direct" ? [emptyItem()] : []
+  );
 
-  // 스텝3: 커밋 선택 시트
+  // 커밋 시트
   const [commitOpen, setCommitOpen] = useState(false);
   const [target, setTarget] = useState<"new" | "existing">(
     presetDeck ? "existing" : "new"
@@ -95,23 +131,14 @@ export default function ImportPhoto() {
   const [newTitle, setNewTitle] = useState("");
   const [existingDeckId, setExistingDeckId] = useState(presetDeck);
 
-  const extract = useExtract();
-  const generate = useGenerateVocab();
-  const commit = useCommit();
+  const extract = useExtractGrammar();
+  const generate = useGenerateGrammar();
+  const commit = useCommitGrammar();
   const { data: decks } = useDecks();
+  // 기존 덱 선택지는 문법 덱만
+  const grammarDecks = (decks ?? []).filter((d) => d.kind === "grammar");
 
-  // grammar 덱에 카드가 들어가는 경로 차단 — kind=grammar로 들어오면 문법 생성으로 보냄
-  useEffect(() => {
-    if (params.get("kind") === "grammar") {
-      const search = new URLSearchParams();
-      if (presetDeck) search.set("deck", presetDeck);
-      search.set("lang_term", langTerm);
-      search.set("lang_def", langDef);
-      navigate(`/grammar/new?${search.toString()}`, { replace: true });
-    }
-    // 진입 시 1회 판정 — 마운트 시점의 값 사용
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const loading = extract.isPending || generate.isPending;
 
   // objectURL 미리보기 — 파일 변경 시 재생성, 언마운트 시 revoke
   useEffect(() => {
@@ -145,125 +172,107 @@ export default function ImportPhoto() {
       return merged;
     });
   };
-
   const removeFile = (idx: number) =>
     setFiles((prev) => prev.filter((_, i) => i !== idx));
 
-  // 사진 추출 또는 AI 생성 — 후보를 받아 검수 행으로 변환
-  const toRows = (candidates: ExtractCandidate[]) =>
-    candidates.map((c) => ({
-      _key: nextKey(),
-      term: c.term ?? "",
-      reading: c.reading ?? "",
-      definition: c.definition ?? "",
-      example: c.example ?? "",
-    }));
-
+  // 추출/생성 실행 → 검수로
   const onRun = async () => {
     try {
-      if (method === "ai") {
-        if (theme.trim().length === 0) return;
-        const res = await generate.mutateAsync({
-          lang_term: langTerm,
-          lang_def: langDef,
-          theme: theme.trim(),
-          level: level.trim() || undefined,
-          count,
-        });
-        setRows(toRows(res.candidates ?? []));
-      } else {
-        if (files.length === 0) return;
-        const res = await extract.mutateAsync({
-          files,
-          lang_term: langTerm,
-          lang_def: langDef,
-          kind,
-        });
-        setRows(toRows(res.candidates ?? []));
-      }
+      const res =
+        method === "photo"
+          ? await extract.mutateAsync({
+              files,
+              lang_term: langTerm,
+              lang_def: langDef,
+            })
+          : await generate.mutateAsync({
+              lang_term: langTerm,
+              lang_def: langDef,
+              level: level.trim(),
+              topic: topic.trim() || undefined,
+              count,
+            });
+      const drafts = (res.candidates ?? []).map(toDraft);
+      // 결과가 비면 빈 항목 하나로 검수 진입 (직접 보완 가능)
+      setItems(drafts.length > 0 ? drafts : [emptyItem()]);
       setStep("review");
     } catch {
-      toast.error(method === "ai" ? t("import.generateError") : t("import.extractError"));
+      toast.error(
+        method === "photo"
+          ? t("import.extractError")
+          : t("grammar.generateError")
+      );
     }
   };
 
-  const updateRow = (key: string, patch: Partial<ExtractCandidate>) =>
-    setRows((prev) =>
-      prev.map((r) => (r._key === key ? { ...r, ...patch } : r))
+  // ── 항목 편집 헬퍼 ──────────────────────────────────────────
+  const patchItem = (key: string, patch: Partial<DraftItem>) =>
+    setItems((prev) =>
+      prev.map((it) => (it._key === key ? { ...it, ...patch } : it))
     );
-  const removeRow = (key: string) =>
-    setRows((prev) => prev.filter((r) => r._key !== key));
-  const addRow = () =>
-    setRows((prev) => [
-      ...prev,
-      { _key: nextKey(), term: "", reading: "", definition: "", example: "" },
-    ]);
+  const removeItem = (key: string) =>
+    setItems((prev) => prev.filter((it) => it._key !== key));
+  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
 
-  // 커밋 가능한 행 (term + definition 채워진 것만)
-  const validCards: CommitCard[] = rows
-    .filter((r) => r.term.trim() && r.definition.trim())
-    .map((r) => ({
-      term: r.term.trim(),
-      reading: r.reading?.trim() || undefined,
-      definition: r.definition.trim(),
-      example: r.example?.trim() || undefined,
-    }));
+  // 커밋 가능한 항목 정규화 (백엔드 검증과 일치 — point/explanation 필수)
+  const validItems: GrammarItemCandidate[] = items
+    .map((it) => ({
+      point: it.point.trim(),
+      explanation: it.explanation.trim(),
+      example: it.example.trim() || undefined,
+      level: it.level.trim(),
+      category: it.category.trim(),
+      problems: [], // 연습문제는 연습 시 생성 — 커밋엔 빈 배열
+    }))
+    .filter((it) => it.point && it.explanation);
 
   const canCommit =
-    validCards.length > 0 &&
+    validItems.length > 0 &&
     !commit.isPending &&
-    (target === "new"
-      ? newTitle.trim().length > 0
-      : existingDeckId.length > 0);
+    (target === "new" ? newTitle.trim().length > 0 : existingDeckId.length > 0);
 
   const onCommit = async () => {
     if (!canCommit) return;
-    const payload: CommitPayload =
+    const payload: GrammarCommitPayload =
       target === "new"
         ? {
             new_deck: {
               title: newTitle.trim(),
               lang_term: langTerm,
               lang_def: langDef,
-              kind,
             },
-            cards: validCards,
+            items: validItems,
           }
-        : { deck_id: existingDeckId, cards: validCards };
+        : { deck_id: existingDeckId, items: validItems };
     try {
       const res = await commit.mutateAsync(payload);
       const deckId =
         res.deck?.id ?? (target === "existing" ? existingDeckId : "");
       navigate(`/decks/${deckId}`, {
         replace: true,
-        state: { imported: validCards.length },
+        state: { grammarImported: res.item_count },
       });
     } catch {
       toast.error(t("import.commitError"));
     }
   };
 
-  // ── 추출/생성 로딩 ─────────────────────────────────────────
-  if (extract.isPending || generate.isPending) {
+  // ── 추출/생성 로딩 ──────────────────────────────────────────
+  if (loading) {
     return (
       <div className="min-h-[100dvh]">
-        <PageHeader title={method === "ai" ? t("import.aiTitle") : t("import.title")} />
+        <PageHeader title={t("grammar.addTitle")} />
         <div className="flex flex-col items-center px-6 pt-16 text-center">
           <KiwiBuddy mood="sleepy" size={104} float />
           <p className="mt-7 font-display text-lg font-bold text-seed">
-            {method === "ai" ? t("import.generating") : t("import.extracting")}
+            {method === "photo" ? t("grammar.extracting") : t("grammar.generating")}
           </p>
           <p className="mt-1.5 text-body-sm text-seed/55">
             {t("import.extractingHint")}
           </p>
           <div className="mt-8 w-full max-w-sm space-y-3">
             {[90, 70, 80].map((w, i) => (
-              <Skeleton
-                key={i}
-                className="h-10"
-                rounded="lg"
-                style={{ width: `${w}%` }}
-              />
+              <Skeleton key={i} className="h-10" rounded="lg" style={{ width: `${w}%` }} />
             ))}
           </div>
         </div>
@@ -271,57 +280,49 @@ export default function ImportPhoto() {
     );
   }
 
+  const onBack = () => {
+    // 직접 입력은 입력 스텝이 없으므로 검수에서 바로 뒤로
+    if (step === "review" && method !== "direct") setStep("input");
+    else navigate(-1);
+  };
+
   return (
     <div className="min-h-[100dvh]">
-      <PageHeader
-        title={method === "ai" ? t("import.aiTitle") : t("import.title")}
-        onBack={() => (step === "review" ? setStep("upload") : navigate(-1))}
-      />
-
-      {/* 스텝 표시 — 씨앗 점 진행바 */}
-      <div className="mx-auto flex max-w-screen-sm items-center justify-center gap-2 px-5 pt-4">
-        <StepDot active={step === "upload"} done={step === "review"} n={1} />
-        <span
-          className={[
-            "h-0.5 w-10 rounded-full transition-colors",
-            step === "review" ? "bg-kiwi" : "bg-ink-200",
-          ].join(" ")}
-        />
-        <StepDot active={step === "review"} done={false} n={2} />
-      </div>
+      <PageHeader title={t("grammar.addTitle")} onBack={onBack} />
 
       <div className="mx-auto max-w-screen-sm">
-        {step === "upload" ? (
-          <UploadStep
-            method={method}
+        {step === "input" && (
+          <InputStep
+            method={method === "direct" ? "ai" : method}
+            langTerm={langTerm}
+            langDef={langDef}
+            onLangTerm={updateLangTerm}
+            onLangDef={updateLangDef}
+            // photo
             previews={previews}
             fileCount={files.length}
             fileError={fileError}
-            langTerm={langTerm}
-            langDef={langDef}
-            theme={theme}
+            onPickFiles={onPick}
+            onRemoveFile={removeFile}
+            // ai
             level={level}
+            topic={topic}
             count={count}
-            onPick={onPick}
-            onRemove={removeFile}
-            onLangTerm={updateLangTerm}
-            onLangDef={updateLangDef}
-            onTheme={setTheme}
             onLevel={setLevel}
+            onTopic={setTopic}
             onCount={setCount}
+            // run
             onRun={onRun}
           />
-        ) : (
+        )}
+
+        {step === "review" && (
           <ReviewStep
-            rows={rows}
-            validCount={validCards.length}
-            onUpdate={updateRow}
-            onRemove={removeRow}
-            onAdd={addRow}
-            onRetake={() => {
-              setRows([]);
-              setStep("upload");
-            }}
+            items={items}
+            validCount={validItems.length}
+            onPatchItem={patchItem}
+            onRemoveItem={removeItem}
+            onAddItem={addItem}
             onContinue={() => setCommitOpen(true)}
           />
         )}
@@ -333,8 +334,8 @@ export default function ImportPhoto() {
         target={target}
         newTitle={newTitle}
         existingDeckId={existingDeckId}
-        decks={decks}
-        cardCount={validCards.length}
+        decks={grammarDecks}
+        itemCount={validItems.length}
         loading={commit.isPending}
         canCommit={canCommit}
         onTarget={setTarget}
@@ -347,112 +348,78 @@ export default function ImportPhoto() {
   );
 }
 
-// ── 스텝 점 ─────────────────────────────────────────────────
-function StepDot({
-  active,
-  done,
-  n,
-}: {
-  active: boolean;
-  done: boolean;
-  n: number;
-}) {
-  return (
-    <span
-      className={[
-        "flex h-7 w-7 items-center justify-center rounded-full text-caption font-bold transition",
-        active
-          ? "bg-kiwi text-white shadow-kiwi-glow"
-          : done
-            ? "bg-kiwi-100 text-kiwi-700"
-            : "bg-ink-100 text-seed/40",
-      ].join(" ")}
-    >
-      {done ? <Check size={15} strokeWidth={3} /> : n}
-    </span>
-  );
-}
-
-// ── 스텝 1: 업로드(사진) / 테마 입력(AI) ────────────────────
-function UploadStep({
-  method,
-  previews,
-  fileCount,
-  fileError,
-  langTerm,
-  langDef,
-  theme,
-  level,
-  count,
-  onPick,
-  onRemove,
-  onLangTerm,
-  onLangDef,
-  onTheme,
-  onLevel,
-  onCount,
-  onRun,
-}: {
-  method: Method;
+// ── 스텝 1: 입력 (사진 / AI) ────────────────────────────────
+function InputStep(props: {
+  method: "photo" | "ai";
+  langTerm: string;
+  langDef: string;
+  onLangTerm: (v: string) => void;
+  onLangDef: (v: string) => void;
   previews: string[];
   fileCount: number;
   fileError: string | null;
-  langTerm: string;
-  langDef: string;
-  theme: string;
+  onPickFiles: (f: FileList | null) => void;
+  onRemoveFile: (i: number) => void;
   level: string;
+  topic: string;
   count: number;
-  onPick: (f: FileList | null) => void;
-  onRemove: (i: number) => void;
-  onLangTerm: (v: string) => void;
-  onLangDef: (v: string) => void;
-  onTheme: (v: string) => void;
   onLevel: (v: string) => void;
+  onTopic: (v: string) => void;
   onCount: (v: number) => void;
   onRun: () => void;
 }) {
   const { t } = useTranslation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
+  const {
+    method,
+    langTerm,
+    langDef,
+    onLangTerm,
+    onLangDef,
+    previews,
+    fileCount,
+    fileError,
+    onPickFiles,
+    onRemoveFile,
+    level,
+    topic,
+    count,
+    onLevel,
+    onTopic,
+    onCount,
+    onRun,
+  } = props;
 
-  const isAi = method === "ai";
-  const canRun = isAi ? theme.trim().length > 0 : fileCount > 0;
+  const canRun = method === "photo" ? fileCount > 0 : level.trim().length > 0;
 
   return (
     <div className="space-y-5 px-5 pt-5">
-      <p className="text-body-sm text-seed/60">
-        {isAi ? t("import.aiIntro") : t("import.uploadIntro")}
-      </p>
-
-      {isAi ? (
-        <AiVocabInput
-          theme={theme}
-          level={level}
-          count={count}
-          onTheme={onTheme}
-          onLevel={onLevel}
-          onCount={onCount}
-        />
-      ) : (
-        <PhotoArea
-          inputRef={inputRef}
-          cameraRef={cameraRef}
+      {method === "photo" ? (
+        <PhotoInput
           previews={previews}
           fileCount={fileCount}
           fileError={fileError}
-          onPick={onPick}
-          onRemove={onRemove}
+          onPick={onPickFiles}
+          onRemove={onRemoveFile}
+        />
+      ) : (
+        <AiInput
+          level={level}
+          topic={topic}
+          count={count}
+          onLevel={onLevel}
+          onTopic={onTopic}
+          onCount={onCount}
         />
       )}
 
-      {/* 학습 설정 — AI(테마)는 단어 전용이라 kind 토글 숨김 */}
+      {/* 언어 설정 */}
       <Card padding="sm">
         <p className="mb-3 text-caption font-bold uppercase tracking-wide text-kiwi-700">
-          {t("import.settings")}
+          {t("grammar.langSettings")}
         </p>
         <div className="grid grid-cols-2 gap-2.5">
           <Select
-            id="imp-lang-term"
+            id="gr-lang-term"
             label={t("deck.fieldLangTerm")}
             value={langTerm}
             onChange={(e) => onLangTerm(e.target.value)}
@@ -464,7 +431,7 @@ function UploadStep({
             ))}
           </Select>
           <Select
-            id="imp-lang-def"
+            id="gr-lang-def"
             label={t("deck.fieldLangDef")}
             value={langDef}
             onChange={(e) => onLangDef(e.target.value)}
@@ -484,15 +451,15 @@ function UploadStep({
           variant="primary"
           size="lg"
           fullWidth
-          leftIcon={isAi ? <Sparkles size={18} /> : undefined}
+          leftIcon={method === "ai" ? <Sparkles size={18} /> : undefined}
           disabled={!canRun}
           onClick={onRun}
         >
-          {isAi
-            ? t("import.generateCta")
-            : fileCount === 0
+          {method === "photo"
+            ? fileCount === 0
               ? t("import.extractCtaEmpty")
-              : t("import.extractCta", { count: fileCount })}
+              : t("import.extractCta", { count: fileCount })
+            : t("grammar.generateCta")}
         </Button>
       </div>
       <div className="h-2" />
@@ -500,97 +467,14 @@ function UploadStep({
   );
 }
 
-// 테마 기반 단어 AI 입력 — 테마(필수) + 레벨(선택) + 개수
-function AiVocabInput({
-  theme,
-  level,
-  count,
-  onTheme,
-  onLevel,
-  onCount,
-}: {
-  theme: string;
-  level: string;
-  count: number;
-  onTheme: (v: string) => void;
-  onLevel: (v: string) => void;
-  onCount: (v: number) => void;
-}) {
-  const { t } = useTranslation();
-  const LEVEL_PRESETS = [
-    t("grammar.levelBeginner"),
-    t("grammar.levelIntermediate"),
-    t("grammar.levelAdvanced"),
-  ];
-  return (
-    <div className="space-y-4">
-      <TextField
-        label={t("import.fieldTheme")}
-        value={theme}
-        onChange={(e) => onTheme(e.target.value)}
-        placeholder={t("import.themePlaceholder")}
-        maxLength={80}
-        autoFocus
-      />
-
-      <div>
-        <TextField
-          label={t("import.fieldLevelOptional")}
-          value={level}
-          onChange={(e) => onLevel(e.target.value)}
-          placeholder={t("grammar.levelPlaceholder")}
-          maxLength={50}
-        />
-        <div className="mt-2 flex flex-wrap gap-2">
-          {LEVEL_PRESETS.map((lv) => (
-            <button
-              key={lv}
-              type="button"
-              onClick={() => onLevel(level === lv ? "" : lv)}
-              className={[
-                "min-h-[36px] rounded-full px-3.5 text-caption font-bold transition active:scale-95",
-                level === lv
-                  ? "bg-kiwi text-white shadow-kiwi-glow"
-                  : "bg-kiwi-50 text-kiwi-700 ring-1 ring-kiwi-200 hover:bg-kiwi-100",
-              ].join(" ")}
-            >
-              {lv}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-1.5 text-caption font-bold uppercase tracking-wide text-seed/50">
-          {t("grammar.fieldCount")}
-        </p>
-        <SegmentedControl<string>
-          layoutId="import-count"
-          ariaLabel={t("grammar.fieldCount")}
-          value={String(count)}
-          onChange={(v) => onCount(Number(v))}
-          segments={[5, 10, 15, 20].map((n) => ({
-            value: String(n),
-            label: String(n),
-          }))}
-        />
-      </div>
-    </div>
-  );
-}
-
-// 사진 업로드 영역 — 드롭존/썸네일 + 카메라/갤러리
-function PhotoArea({
-  inputRef,
-  cameraRef,
+// 사진 입력 — 드롭존/썸네일 + 카메라/갤러리 (import 패턴 재사용)
+function PhotoInput({
   previews,
   fileCount,
   fileError,
   onPick,
   onRemove,
 }: {
-  inputRef: React.RefObject<HTMLInputElement>;
-  cameraRef: React.RefObject<HTMLInputElement>;
   previews: string[];
   fileCount: number;
   fileError: string | null;
@@ -598,9 +482,13 @@ function PhotoArea({
   onRemove: (i: number) => void;
 }) {
   const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
   return (
-    <>
-      {/* 드롭존 / 썸네일 그리드 */}
+    <div className="space-y-5">
+      <p className="text-body-sm text-seed/60">{t("grammar.photoIntro")}</p>
+
       <div className="rounded-3xl border-2 border-dashed border-bark/30 bg-surface/60 p-4">
         {previews.length === 0 ? (
           <button
@@ -639,7 +527,6 @@ function PhotoArea({
                 </IconButton>
               </div>
             ))}
-            {/* 추가 타일 */}
             {fileCount < MAX_FILES && (
               <button
                 type="button"
@@ -654,7 +541,6 @@ function PhotoArea({
         )}
       </div>
 
-      {/* 카메라 촬영 + 갤러리 선택 */}
       <div className="grid grid-cols-2 gap-2.5">
         <Button
           variant="secondary"
@@ -676,7 +562,6 @@ function PhotoArea({
         </Button>
       </div>
 
-      {/* 숨은 input — 갤러리(multiple) + 카메라(capture) */}
       <input
         ref={inputRef}
         type="file"
@@ -705,42 +590,120 @@ function PhotoArea({
           {fileError}
         </p>
       )}
-    </>
+    </div>
   );
 }
 
-// ── 스텝 2: 검수/편집 ────────────────────────────────────────
+// AI 입력 — 레벨/주제/개수
+function AiInput({
+  level,
+  topic,
+  count,
+  onLevel,
+  onTopic,
+  onCount,
+}: {
+  level: string;
+  topic: string;
+  count: number;
+  onLevel: (v: string) => void;
+  onTopic: (v: string) => void;
+  onCount: (v: number) => void;
+}) {
+  const { t } = useTranslation();
+  const LEVEL_PRESETS = [
+    t("grammar.levelBeginner"),
+    t("grammar.levelIntermediate"),
+    t("grammar.levelAdvanced"),
+  ];
+  return (
+    <div className="space-y-4">
+      <p className="text-body-sm text-seed/60">{t("grammar.aiIntro")}</p>
+
+      <div>
+        <TextField
+          label={t("grammar.fieldLevel")}
+          value={level}
+          onChange={(e) => onLevel(e.target.value)}
+          placeholder={t("grammar.levelPlaceholder")}
+          maxLength={50}
+        />
+        {/* 레벨 빠른 선택 칩 */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {LEVEL_PRESETS.map((lv) => (
+            <button
+              key={lv}
+              type="button"
+              onClick={() => onLevel(lv)}
+              className={[
+                "min-h-[36px] rounded-full px-3.5 text-caption font-bold transition active:scale-95",
+                level === lv
+                  ? "bg-kiwi text-white shadow-kiwi-glow"
+                  : "bg-kiwi-50 text-kiwi-700 ring-1 ring-kiwi-200 hover:bg-kiwi-100",
+              ].join(" ")}
+            >
+              {lv}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <TextField
+        label={t("grammar.fieldTopic")}
+        value={topic}
+        onChange={(e) => onTopic(e.target.value)}
+        placeholder={t("grammar.topicPlaceholder")}
+        maxLength={200}
+      />
+
+      <div>
+        <p className="mb-1.5 text-caption font-bold uppercase tracking-wide text-seed/50">
+          {t("grammar.fieldCount")}
+        </p>
+        <SegmentedControl<string>
+          layoutId="grammar-count"
+          ariaLabel={t("grammar.fieldCount")}
+          value={String(count)}
+          onChange={(v) => onCount(Number(v))}
+          segments={[3, 5, 8, 10].map((n) => ({
+            value: String(n),
+            label: String(n),
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── 스텝 2: 검수 (항목만) ────────────────────────────────────
 function ReviewStep({
-  rows,
+  items,
   validCount,
-  onUpdate,
-  onRemove,
-  onAdd,
-  onRetake,
+  onPatchItem,
+  onRemoveItem,
+  onAddItem,
   onContinue,
 }: {
-  rows: DraftRow[];
+  items: DraftItem[];
   validCount: number;
-  onUpdate: (key: string, patch: Partial<ExtractCandidate>) => void;
-  onRemove: (key: string) => void;
-  onAdd: () => void;
-  onRetake: () => void;
+  onPatchItem: (key: string, patch: Partial<DraftItem>) => void;
+  onRemoveItem: (key: string) => void;
+  onAddItem: () => void;
   onContinue: () => void;
 }) {
   const { t } = useTranslation();
 
-  // 추출 0개 — 빈 상태 + 다시 시도
-  if (rows.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="px-5 pt-6">
         <Card padding="md">
           <EmptyState
             mood="sad"
-            title={t("import.emptyTitle")}
-            description={t("import.emptyHint")}
+            title={t("grammar.emptyTitle")}
+            description={t("grammar.emptyHint")}
             action={
-              <Button variant="primary" size="lg" fullWidth onClick={onRetake}>
-                {t("import.retake")}
+              <Button variant="primary" size="lg" fullWidth onClick={onAddItem}>
+                {t("grammar.addItem")}
               </Button>
             }
           />
@@ -751,61 +714,49 @@ function ReviewStep({
 
   return (
     <div className="px-5 pt-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-base font-bold text-seed">
-            {t("import.reviewTitle")}
-          </h2>
-          <p className="truncate text-caption text-seed/55">
-            {t("import.reviewHint", { count: rows.length })}
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="shrink-0"
-          onClick={onRetake}
-        >
-          {t("import.retake")}
-        </Button>
+      <div className="mb-3">
+        <h2 className="font-display text-base font-bold text-seed">
+          {t("grammar.reviewTitle")}
+        </h2>
+        <p className="text-caption text-seed/55">
+          {t("grammar.reviewHint", { count: items.length })}
+        </p>
       </div>
 
       <ul className="space-y-3 pb-4">
-        {rows.map((row, i) => (
-          <ReviewRow
-            key={row._key}
-            row={row}
+        {items.map((it, i) => (
+          <ItemEditor
+            key={it._key}
+            item={it}
             index={i}
-            onUpdate={onUpdate}
-            onRemove={onRemove}
+            onPatch={onPatchItem}
+            onRemove={onRemoveItem}
           />
         ))}
       </ul>
 
-      {/* 행 추가 — 스크롤 영역 안 */}
       <button
         type="button"
-        onClick={onAdd}
+        onClick={onAddItem}
         className="mb-4 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-kiwi-300 text-body-sm font-bold text-kiwi-700 outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-kiwi-400"
       >
         <Plus size={18} strokeWidth={2.4} />
-        {t("import.addRow")}
+        {t("grammar.addItem")}
       </button>
 
-      {/* 스티키 저장 바가 마지막 행을 가리지 않도록 여백 확보 */}
+      {/* 스티키 저장 바가 마지막 항목을 가리지 않도록 여백 */}
       <div className="h-24" />
 
-      {/* 항상 보이는 하단 저장 바 — 추출 개수 + 저장(다음). 스크롤 무관·탭바 위·safe-area */}
+      {/* 하단 저장 바 — 단어 import와 동일 패턴 */}
       <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-raised md:bottom-0">
         <div className="border-t border-border bg-surface/95 px-5 pb-3 pt-3 shadow-[0_-6px_20px_rgba(46,58,36,0.08)] backdrop-blur md:pb-3">
           <div className="mx-auto flex max-w-screen-sm items-center gap-3">
-            {/* 추출/유효 개수 표시 */}
             <div className="min-w-0 shrink-0">
               <p className="font-display text-h3 font-bold leading-none text-seed">
                 {validCount}
               </p>
               <p className="mt-0.5 text-caption font-bold text-seed/45">
-                {t("import.saveBarCount")}
+                {t("grammar.saveBarCount")}
               </p>
             </div>
             <Button
@@ -815,7 +766,7 @@ function ReviewStep({
               disabled={validCount === 0}
               onClick={onContinue}
             >
-              {t("import.continueCta", { count: validCount })}
+              {t("grammar.continueCta", { count: validCount })}
             </Button>
           </div>
         </div>
@@ -824,28 +775,24 @@ function ReviewStep({
   );
 }
 
-// 검수 행 — term/reading/definition/example 인라인 편집
-function ReviewRow({
-  row,
+// 문법 항목 편집 카드 — point/explanation/example/level/category (연습문제 없음)
+function ItemEditor({
+  item,
   index,
-  onUpdate,
+  onPatch,
   onRemove,
 }: {
-  row: DraftRow;
+  item: DraftItem;
   index: number;
-  onUpdate: (key: string, patch: Partial<ExtractCandidate>) => void;
+  onPatch: (key: string, patch: Partial<DraftItem>) => void;
   onRemove: (key: string) => void;
 }) {
   const { t } = useTranslation();
-  // term 또는 definition 비면 "확인 필요" 강조
-  const incomplete = !row.term.trim() || !row.definition.trim();
+  const incomplete = !item.point.trim() || !item.explanation.trim();
 
   return (
     <li>
-      <Card
-        padding="sm"
-        className={incomplete ? "ring-2 ring-pop/45" : undefined}
-      >
+      <Card padding="sm" className={incomplete ? "ring-2 ring-pop/45" : undefined}>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-caption font-bold text-seed/40">
             {String(index + 1).padStart(2, "0")}
@@ -860,38 +807,41 @@ function ReviewRow({
               label={t("common.delete")}
               variant="ghost"
               className="text-seed/45 hover:bg-pop-soft hover:text-pop"
-              onClick={() => onRemove(row._key)}
+              onClick={() => onRemove(item._key)}
             >
               <Trash2 size={18} />
             </IconButton>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="space-y-2">
           <TextField
-            value={row.term}
-            onChange={(e) => onUpdate(row._key, { term: e.target.value })}
-            placeholder={t("card.term") + " *"}
+            value={item.point}
+            onChange={(e) => onPatch(item._key, { point: e.target.value })}
+            placeholder={t("grammar.fieldPoint") + " *"}
+          />
+          <textarea
+            value={item.explanation}
+            onChange={(e) => onPatch(item._key, { explanation: e.target.value })}
+            placeholder={t("grammar.fieldExplanation") + " *"}
+            rows={2}
+            className="w-full resize-y rounded-2xl border-2 border-transparent bg-cream/70 px-4 py-3 text-base text-seed placeholder:text-seed/30 shadow-inner-soft transition focus:border-kiwi focus:bg-surface focus:outline-none"
           />
           <TextField
-            value={row.reading ?? ""}
-            onChange={(e) => onUpdate(row._key, { reading: e.target.value })}
-            placeholder={t("card.reading")}
+            value={item.example}
+            onChange={(e) => onPatch(item._key, { example: e.target.value })}
+            placeholder={t("grammar.fieldExample")}
           />
-          <div className="sm:col-span-2">
+          <div className="grid grid-cols-2 gap-2">
             <TextField
-              value={row.definition}
-              onChange={(e) =>
-                onUpdate(row._key, { definition: e.target.value })
-              }
-              placeholder={t("card.definition") + " *"}
+              value={item.level}
+              onChange={(e) => onPatch(item._key, { level: e.target.value })}
+              placeholder={t("grammar.fieldLevel")}
             />
-          </div>
-          <div className="sm:col-span-2">
             <TextField
-              value={row.example ?? ""}
-              onChange={(e) => onUpdate(row._key, { example: e.target.value })}
-              placeholder={t("card.example")}
+              value={item.category}
+              onChange={(e) => onPatch(item._key, { category: e.target.value })}
+              placeholder={t("grammar.fieldCategory")}
             />
           </div>
         </div>
@@ -900,14 +850,14 @@ function ReviewRow({
   );
 }
 
-// ── 스텝 3: 커밋 선택 바텀시트 ───────────────────────────────
+// ── 커밋 선택 바텀시트 ───────────────────────────────────────
 function CommitSheet({
   open,
   target,
   newTitle,
   existingDeckId,
   decks,
-  cardCount,
+  itemCount,
   loading,
   canCommit,
   onTarget,
@@ -920,8 +870,8 @@ function CommitSheet({
   target: "new" | "existing";
   newTitle: string;
   existingDeckId: string;
-  decks: { id: string | number; title: string }[] | undefined;
-  cardCount: number;
+  decks: { id: string | number; title: string }[];
+  itemCount: number;
   loading: boolean;
   canCommit: boolean;
   onTarget: (t: "new" | "existing") => void;
@@ -931,49 +881,46 @@ function CommitSheet({
   onConfirm: () => void;
 }) {
   const { t } = useTranslation();
-
   return (
     <Sheet
       open={open}
       onClose={onCancel}
-      title={t("import.saveTitle")}
-      ariaLabel={t("import.saveTitle")}
+      title={t("grammar.saveTitle")}
+      ariaLabel={t("grammar.saveTitle")}
     >
       <p className="-mt-1 text-body-sm text-seed/55">
-        {t("import.saveSubtitle", { count: cardCount })}
+        {t("grammar.saveSubtitle", { count: itemCount })}
       </p>
 
-      {/* 대상 토글 */}
       <div className="mt-4">
         <SegmentedControl<"new" | "existing">
-          layoutId="commit-target"
-          ariaLabel={t("import.saveTitle")}
+          layoutId="grammar-commit-target"
+          ariaLabel={t("grammar.saveTitle")}
           value={target}
           onChange={onTarget}
           segments={[
-            { value: "new", label: t("import.saveAsNew") },
-            { value: "existing", label: t("import.addToExisting") },
+            { value: "new", label: t("grammar.saveAsNew") },
+            { value: "existing", label: t("grammar.addToExisting") },
           ]}
         />
       </div>
 
-      {/* 입력 영역 */}
       <div className="mt-3">
         {target === "new" ? (
           <TextField
             value={newTitle}
             onChange={(e) => onNewTitle(e.target.value)}
-            placeholder={t("deck.titlePlaceholder")}
+            placeholder={t("grammar.deckTitlePlaceholder")}
             maxLength={80}
             autoFocus
           />
-        ) : decks && decks.length > 0 ? (
+        ) : decks.length > 0 ? (
           <Select
             value={existingDeckId}
             onChange={(e) => onExistingDeck(e.target.value)}
           >
             <option value="" disabled>
-              {t("import.selectDeck")}
+              {t("grammar.selectDeck")}
             </option>
             {decks.map((d) => (
               <option key={d.id} value={String(d.id)}>
@@ -983,12 +930,11 @@ function CommitSheet({
           </Select>
         ) : (
           <p className="rounded-2xl bg-cream px-4 py-3 text-body-sm font-bold text-seed/50">
-            {t("import.noDecks")}
+            {t("grammar.noDecks")}
           </p>
         )}
       </div>
 
-      {/* 액션 */}
       <div className="mt-5 flex gap-2.5">
         <Button variant="secondary" fullWidth onClick={onCancel}>
           {t("common.cancel")}

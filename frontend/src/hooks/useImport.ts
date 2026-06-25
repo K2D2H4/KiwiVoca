@@ -10,6 +10,8 @@ import type {
   CommitResult,
   ExtractParams,
   ExtractResult,
+  GenerateVocabParams,
+  GenerateVocabResult,
 } from "../types/import";
 
 // POST /api/import/extract — FormData (Content-Type 자동 지정)
@@ -24,6 +26,19 @@ export function useExtract() {
       const { data } = await api.post<ExtractResult>(
         "/import/extract",
         form
+      );
+      return data;
+    },
+  });
+}
+
+// POST /api/import/generate — 테마/언어/레벨/개수로 단어 후보 AI 생성
+export function useGenerateVocab() {
+  return useMutation({
+    mutationFn: async (params: GenerateVocabParams) => {
+      const { data } = await api.post<GenerateVocabResult>(
+        "/import/generate",
+        params
       );
       return data;
     },
