@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import KiwiBuddy from "../KiwiBuddy";
 import LanguageSwitcher from "../LanguageSwitcher";
+import LogoWordmark from "../LogoWordmark";
 
 interface AuthLayoutProps {
   title: string;
@@ -31,6 +32,14 @@ export default function AuthLayout({
           </div>
 
           <div className="relative mx-auto mt-5 flex w-full max-w-md flex-col items-center pb-9 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-5"
+            >
+              <LogoWordmark onColor height={44} />
+            </motion.div>
             <motion.div
               initial={{ scale: 0.6, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
