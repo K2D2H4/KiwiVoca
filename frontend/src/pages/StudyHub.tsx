@@ -118,7 +118,7 @@ export default function StudyHub() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-screen-md px-5 pt-5 pb-28">
+      <div className="mx-auto w-full max-w-screen-md px-5 pt-5 pb-28 md:pb-6">
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -236,7 +236,10 @@ export default function StudyHub() {
         )}
       </div>
 
-      {/* 선택 시 떠오르는 하단 시작 바 (탭바 위 · safe-area) — 단어 게임 / 문법 연습 분기 */}
+      {/* 선택 시 떠오르는 시작 바.
+          모바일: viewport 하단 고정(탭바 위 · safe-area, 엄지 접근성).
+          데스크탑(md+): fixed 해제 → 콘텐츠 흐름 안 sticky 패널(덱 섹션 바로 아래)로
+          자연스럽게 배치(빈 화면에 동떨어진 버튼 방지). */}
       <AnimatePresence>
         {!callMode && (vocabCount > 0 || grammarCount > 0) && (
           <motion.div
@@ -244,9 +247,9 @@ export default function StudyHub() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-raised px-5"
+            className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-raised px-5 md:sticky md:inset-x-auto md:bottom-5 md:px-0 md:pb-2"
           >
-            <div className="mx-auto w-full max-w-screen-md space-y-2.5">
+            <div className="mx-auto w-full max-w-screen-md space-y-2.5 md:rounded-3xl md:bg-surface/85 md:p-3 md:shadow-soft md:ring-1 md:ring-border md:backdrop-blur-md">
               {grammarCount > 0 && (
                 <Button
                   variant={vocabCount > 0 ? "secondary" : "primary"}

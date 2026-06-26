@@ -59,10 +59,12 @@ export default function StudyResult({
   }, [celebrate, play]);
 
   return (
-    <div className="bg-orchard relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
+    <div className="bg-orchard relative flex h-[100dvh] flex-col overflow-hidden">
       {celebrate && !reduce && <Confetti />}
 
-      <div className="relative z-raised mx-auto w-full max-w-screen-sm">
+      {/* 스크롤 영역 — 통계 + (길어질 수 있는) 틀린 카드 목록. 하단 액션바에 가리지 않게 패딩. */}
+      <div className="relative z-raised flex-1 overflow-y-auto px-5 pb-6 pt-[max(2rem,env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-screen-sm">
         {/* 리액션 + 정답률 */}
         <motion.div
           variants={staggerParent}
@@ -184,13 +186,17 @@ export default function StudyResult({
           </motion.div>
         )}
 
-        {/* CTA */}
-        <motion.div
-          variants={staggerParent}
-          initial="hidden"
-          animate="show"
-          className="mt-7 space-y-2.5"
-        >
+        </div>
+      </div>
+
+      {/* 액션바 — 화면 하단 고정. 스크롤과 무관하게 항상 보임(몰입형, 탭바 없음). */}
+      <motion.div
+        variants={staggerParent}
+        initial="hidden"
+        animate="show"
+        className="relative z-raised border-t border-ink-100/70 bg-surface/85 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(46,58,36,0.07)] backdrop-blur-md"
+      >
+        <div className="mx-auto w-full max-w-screen-sm space-y-2.5">
           {wrongCards.length > 0 && onRetryWrong && (
             <motion.div variants={staggerItem}>
               <Button
@@ -225,8 +231,8 @@ export default function StudyResult({
               {t("study.backHome")}
             </Button>
           </motion.div>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

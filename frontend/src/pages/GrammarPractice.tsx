@@ -55,6 +55,7 @@ export default function GrammarPractice() {
   const {
     mutate: runPractice,
     reset: resetPractice,
+    status: practiceStatus,
     isPending,
     isError,
     isSuccess,
@@ -64,12 +65,10 @@ export default function GrammarPractice() {
   // 옵션 시트 — 미구성 진입 시 자동 오픈
   const [sheetOpen, setSheetOpen] = useState(!configured);
 
-  // 구성되면 즉석 생성 호출(한 번). 옵션/덱이 바뀌면 다시 호출.
-  // POST이므로 명시 호출 — 같은 구성에 중복 호출 방지용 시그니처 추적.
-  const requestedSig = useRef<string | null>(null);
-  useEffect(() => {
-    if (!configured || deckIds.length === 0) return;
-    const sig = JSON.stringify({
+  // 현재 쿼리(덱/필터/옵션) 시그니처 — 같은 구성에서 중복 생성 방지용.
+  const sig = useMemo(() => {
+    if (!configured || deckIds.length === 0) return null;
+    return JSON.stringify({
       deckIds: [...deckIds].sort(),
       levels: [...levels].sort(),
       categories: [...categories].sort(),
@@ -77,7 +76,17 @@ export default function GrammarPractice() {
       limit,
       order,
     });
-    if (requestedSig.current === sig) return;
+  }, [configured, deckIds, levels, categories, scope, limit, order]);
+
+  // 구성되면 즉석 생성 호출. 시그니처가 바뀌었을 때만 새로 요청.
+  // ⚠️ 딥링크(start=1) 직진입 시 행 방지: ref만으로 가드하면
+  //    StrictMode 더블마운트/리셋 시 mutation이 버려져도 ref가 남아 재호출이 막힘.
+  //    → "요청한 sig"와 "mutation이 idle(미시작)"을 함께 보고, idle이면 다시 트리거.
+  const requestedSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (sig == null) return;
+    // 같은 구성에 대해 이미 요청을 보냈고, mutation이 살아있으면(진행/성공/실패) 스킵.
+    if (requestedSig.current === sig && practiceStatus !== "idle") return;
     requestedSig.current = sig;
     runPractice({
       deckIds,
@@ -88,7 +97,8 @@ export default function GrammarPractice() {
       order,
     });
   }, [
-    configured,
+    sig,
+    practiceStatus,
     deckIds,
     levels,
     categories,
@@ -353,24 +363,48 @@ function PracticeRunner({
   );
 }
 
-// 빈칸 ___ 을 pop 밑줄 칩으로 렌더
-function PromptText({ prompt }: { prompt: string }) {
+// 빈칸 ___ 슬롯 렌더.
+// - 미공개: 코랄 밑줄의 "필 슬롯"(baseline 정렬, 적정 너비, 살짝 강조).
+// - 공개 후(filled 전달): 슬롯 자리에 정답을 채워 문장을 완성.
+//   정답이면 키위그린, 오답이면 정답을 코랄로 표시(채점 로직과 무관, 표시만).
+function PromptText({
+  prompt,
+  filled,
+  correct,
+}: {
+  prompt: string;
+  filled?: string | null; // 공개 후 빈칸에 채울 정답(없으면 빈 슬롯)
+  correct?: boolean; // filled 색상 분기 — 정답 그린 / 오답 코랄
+}) {
   const parts = prompt.split(/(_{2,})/g);
   return (
     <span className="break-words text-[clamp(1.35rem,5.5vw,1.85rem)] font-black leading-snug text-seed">
-      {parts.map((p, i) =>
-        /^_{2,}$/.test(p) ? (
+      {parts.map((p, i) => {
+        if (!/^_{2,}$/.test(p)) return <span key={i}>{p}</span>;
+        // 공개 후 — 정답으로 채운 슬롯
+        if (filled != null) {
+          return (
+            <span
+              key={i}
+              className={`mx-1 inline-flex items-baseline rounded-lg px-2 pb-0.5 align-baseline font-black ${
+                correct
+                  ? "bg-kiwi/12 text-kiwi-dark"
+                  : "bg-pop/12 text-pop-dark"
+              }`}
+            >
+              {filled}
+            </span>
+          );
+        }
+        // 미공개 — 빈 슬롯(코랄 밑줄 칩)
+        return (
           <span
             key={i}
-            className="mx-1 inline-block min-w-[3ch] translate-y-1 rounded-md border-b-[3px] border-pop align-baseline"
+            className="mx-1 inline-block h-[1.15em] min-w-[3.5ch] translate-y-[0.18em] rounded-md border-b-[3px] border-pop/70 bg-pop/5 align-baseline"
             aria-hidden="true"
-          >
-            &nbsp;
-          </span>
-        ) : (
-          <span key={i}>{p}</span>
-        )
-      )}
+          />
+        );
+      })}
     </span>
   );
 }
@@ -409,6 +443,8 @@ function ChoiceProblem({
   const [picked, setPicked] = useState<string | null>(null);
   const revealed = picked !== null;
   const correct = problem.answer;
+  // 공개 후 빈칸을 채울 값/색상 — 정답이면 그린, 오답이어도 정답을 표시해 문장 완성
+  const pickedCorrect = picked != null && isAnswerCorrect(picked, correct);
 
   const choose = (opt: string) => {
     if (revealed) return;
@@ -422,8 +458,13 @@ function ChoiceProblem({
         <span className="mb-3 text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
           {t("grammar.practice.fillBlank")}
         </span>
-        <PromptText prompt={problem.prompt} />
-        <BaseFormHint baseForm={problem.base_form} />
+        <PromptText
+          prompt={problem.prompt}
+          filled={revealed ? correct : null}
+          correct={pickedCorrect}
+        />
+        {/* 정답 공개 후엔 빈칸이 채워져 힌트 불필요 */}
+        {!revealed && <BaseFormHint baseForm={problem.base_form} />}
       </div>
 
       <div className="mt-4 grid gap-2.5">
@@ -535,8 +576,13 @@ function TypingProblem({
         <span className="mb-3 text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
           {t("grammar.practice.fillBlankType")}
         </span>
-        <PromptText prompt={problem.prompt} />
-        <BaseFormHint baseForm={problem.base_form} />
+        <PromptText
+          prompt={problem.prompt}
+          filled={revealed ? problem.answer : null}
+          correct={phase === "correct"}
+        />
+        {/* 정답 공개 후엔 빈칸이 채워져 힌트 불필요 */}
+        {!revealed && <BaseFormHint baseForm={problem.base_form} />}
       </div>
 
       <div className="mt-4">
@@ -659,8 +705,10 @@ function GrammarResult({
     tier === "perfect" ? "love" : tier === "good" ? "happy" : "neutral";
 
   return (
-    <div className="bg-orchard relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="relative z-raised mx-auto w-full max-w-screen-sm">
+    <div className="bg-orchard relative flex h-[100dvh] flex-col overflow-hidden">
+      {/* 스크롤 영역 — 통계 + (길어질 수 있는) 틀린 문법 복습 목록. 액션바에 가리지 않게 패딩. */}
+      <div className="relative z-raised flex-1 overflow-y-auto px-5 pb-6 pt-[max(2rem,env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-screen-sm">
         <div className="flex flex-col items-center text-center">
           <motion.div
             animate={
@@ -734,7 +782,12 @@ function GrammarResult({
           </div>
         )}
 
-        <div className="mt-7 space-y-2.5">
+        </div>
+      </div>
+
+      {/* 액션바 — 화면 하단 고정. 복습 목록이 길어도 항상 보임(몰입형, 탭바 없음). */}
+      <div className="relative z-raised border-t border-ink-100/70 bg-surface/85 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(46,58,36,0.07)] backdrop-blur-md">
+        <div className="mx-auto w-full max-w-screen-sm space-y-2.5">
           <Button
             size="lg"
             fullWidth

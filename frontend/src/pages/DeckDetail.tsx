@@ -42,6 +42,12 @@ import {
 import type { UpdateCardPayload } from "../types/deck";
 import type { GrammarItem } from "../types/grammar";
 
+// 학습/문법 연습 시작 CTA — 코랄 그라데이션의 "느낌"은 유지하되 채도·글로우를 낮춤.
+// 키위 그린에서 코랄로 부드럽게 번지는 따뜻한 톤 + 낮은 그림자(기존 shadow-pop 0.28 → 0.18).
+// 삭제(danger) 버튼의 강렬한 코랄은 경고색으로 그대로 둔다.
+const START_CTA =
+  "bg-gradient-to-br from-kiwi via-kiwi-400 to-pop hover:from-kiwi-600 hover:via-kiwi to-pop-dark shadow-[0_5px_18px_rgba(255,138,122,0.18)]";
+
 export default function DeckDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -370,11 +376,12 @@ export default function DeckDetail() {
         <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-[1.6fr_1fr]">
           {isGrammar ? (
             <Button
-              variant="danger"
+              variant="primary"
               size="lg"
               fullWidth
               leftIcon={<Play size={20} fill="currentColor" />}
               disabled={cardCount === 0}
+              className={START_CTA}
               onClick={() =>
                 navigate(`/grammar/practice?decks=${id}`)
               }
@@ -383,11 +390,12 @@ export default function DeckDetail() {
             </Button>
           ) : (
             <Button
-              variant="danger"
+              variant="primary"
               size="lg"
               fullWidth
               leftIcon={<Play size={20} fill="currentColor" />}
               disabled={cardCount === 0}
+              className={START_CTA}
               onClick={() => setModeSheetOpen(true)}
             >
               {t("deck.startStudy")}

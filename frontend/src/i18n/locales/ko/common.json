@@ -188,6 +188,7 @@
     "optionsHint": "어떤 단어를 얼마나 외울지 골라요.",
     "scopeLabel": "범위",
     "scopeAll": "전체 단어",
+    "scopeAllGrammar": "전체 문법",
     "scopeUnlearned": "미완료만",
     "summaryLoading": "단어 수를 세는 중…",
     "summaryUnlearned": "미완료 {{count}}개",
@@ -351,6 +352,7 @@
     "practice": {
       "optionsTitle": "문법 연습 범위",
       "optionsHint": "레벨과 카테고리를 골라 연습해요.",
+      "summaryLoading": "문제 수를 세는 중…",
       "summaryAvailable": "연습 문제 {{count}}개",
       "startCta": "연습 시작",
       "choosePrompt": "연습 범위를 골라주세요.",
