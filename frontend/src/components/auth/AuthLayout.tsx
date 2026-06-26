@@ -28,7 +28,7 @@ export default function AuthLayout({
           <div className="pointer-events-none absolute -left-8 top-16 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
 
           <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-2">
-            <LogoWordmark onColor height={60} />
+            <LogoWordmark height={60} />
             <LanguageSwitcher />
           </div>
 
