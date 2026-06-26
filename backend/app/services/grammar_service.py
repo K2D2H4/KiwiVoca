@@ -425,12 +425,25 @@ def _build_problems_prompt(
             f"{joined}\n"
         )
 
+    # typing(주관식) 최소 개수: per_item 이 2 이상이면 약 30~40% 를 typing 으로,
+    # 단 항상 최소 1개는 typing 이 포함되게 한다. per_item==1 이면 강제하지 않는다.
+    typing_min = max(1, round(per_item * 0.35)) if per_item >= 2 else 0
+    if typing_min > 0:
+        mix_rule = (
+            f"문제 유형은 choice(객관식)와 typing(주관식)을 반드시 섞어라. "
+            f"{per_item}개 중 최소 {typing_min}개는 typing(주관식)으로 만들고 "
+            "나머지는 choice 로 하라(한쪽으로 쏠리지 마라). 난이도는 낮게.\n"
+        )
+    else:
+        mix_rule = "choice(객관식) 또는 typing(주관식) 중 적절히. 난이도는 낮게.\n"
+
     return (
         f"학습 언어 '{lang_term}' 의 아래 문법 항목들로 빈칸 채우기 연습문제를 만들어라.\n"
-        f"각 문법 항목(아래 [n])마다 정확히 {per_item}개의 문제를 만들어라(반복 학습용).\n"
+        f"각 문법 항목(아래 [n])마다 반드시 정확히 {per_item}개의 문제를 만들어라"
+        "(반복 학습용). 절대 더 적게 만들지 마라 — 요청한 개수를 정확히 채워라.\n"
         f"같은 항목의 {per_item}개 문제는 가능하면 서로 다른 예문/문장으로 만들되, "
         "반복 학습이므로 비슷한 상황의 예문은 허용한다(완전히 동일한 문장만 피하라).\n"
-        "기본은 choice(객관식)로 만들고, 일부만 typing(주관식)으로 하라. 난이도는 낮게.\n\n"
+        f"{mix_rule}\n"
         "■ 빈칸/정답 규칙 (반드시 지켜라):\n"
         "1) prompt 는 완전하고 자연스러운 문장이어야 하며, '___' 자리에 answer 를 "
         "그대로 끼워 넣으면 문법적으로 완전하고 올바른 문장이 되어야 한다.\n"
@@ -462,7 +475,8 @@ def _build_problems_prompt(
         "처럼 문맥에서 명백히 틀린 것으로 만들어라.\n\n"
         "각 문제 필드:\n"
         "- item_index: 위 [n] 의 n (정수)\n"
-        "- kind: 'choice' 또는 'typing'\n"
+        "- kind: 'choice'(객관식) 또는 'typing'(주관식). 위 혼합 비율을 지켜라. "
+        "typing 은 보기 없이 base_form 힌트만으로 풀 수 있게 만들어라\n"
         f"- prompt: 빈칸(___)을 포함한 '{lang_term}' 문장 (위 규칙 준수)\n"
         "- answer: 빈칸에 들어갈 정답(한 덩어리, 활용형)\n"
         "- options: choice 면 정답 포함 4개. 오답 3개는 문맥에서 명백히 틀린 것(위 5~8 규칙). "

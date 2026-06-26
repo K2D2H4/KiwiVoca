@@ -701,7 +701,7 @@ function PhotoArea({
       />
 
       {fileError && (
-        <p className="rounded-2xl bg-pop-soft px-4 py-3 text-body-sm font-bold text-pop-dark">
+        <p className="rounded-2xl bg-danger-soft px-4 py-3 text-body-sm font-bold text-danger">
           {fileError}
         </p>
       )}
@@ -844,7 +844,7 @@ function ReviewRow({
     <li>
       <Card
         padding="sm"
-        className={incomplete ? "ring-2 ring-pop/45" : undefined}
+        className={incomplete ? "ring-2 ring-warning/45" : undefined}
       >
         <div className="mb-2 flex items-center justify-between">
           <span className="text-caption font-bold text-seed/40">
@@ -852,7 +852,7 @@ function ReviewRow({
           </span>
           <div className="flex items-center gap-1">
             {incomplete && (
-              <Badge tone="pop" size="sm">
+              <Badge tone="warning" size="sm">
                 {t("import.needsCheck")}
               </Badge>
             )}

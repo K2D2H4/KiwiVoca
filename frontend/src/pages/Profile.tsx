@@ -84,7 +84,7 @@ export default function Profile() {
           >
             <Card interactive padding="md">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pop-soft text-pop-dark">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info">
                   <BarChart3 size={18} strokeWidth={2.3} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -149,7 +149,7 @@ export default function Profile() {
         <motion.div variants={staggerItem}>
           <Card padding="md">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pop-soft text-pop-dark">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-kiwi-100 text-kiwi-700">
                 <Sparkles size={18} strokeWidth={2.3} />
               </span>
               <div className="min-w-0 flex-1">
@@ -175,7 +175,6 @@ export default function Profile() {
             fullWidth
             leftIcon={<LogOut size={18} strokeWidth={2.4} />}
             onClick={onLogout}
-            className="text-pop-dark hover:bg-pop-soft hover:ring-pop/40"
           >
             {t("home.logout")}
           </Button>

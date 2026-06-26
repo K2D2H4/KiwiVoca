@@ -251,7 +251,7 @@ export default function Flashcards({
 
                 {/* 뒷면 — definition + example */}
                 <span
-                  className="absolute inset-0 flex h-[55dvh] w-full flex-col items-center justify-center gap-3 rounded-3xl bg-gradient-to-br from-kiwi to-kiwi-dark p-7 text-center text-white shadow-pop"
+                  className="absolute inset-0 flex h-[55dvh] w-full flex-col items-center justify-center gap-3 rounded-3xl bg-gradient-to-br from-kiwi to-kiwi-dark p-7 text-center text-white shadow-kiwi-glow"
                   style={{
                     backfaceVisibility: "hidden",
                     transform: "rotateY(180deg)",
@@ -291,7 +291,7 @@ export default function Flashcards({
             type="button"
             onClick={() => triggerButton(true)}
             whileTap={tap}
-            className="flex min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-pop"
+            className="flex min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 13l4 4L19 7" />

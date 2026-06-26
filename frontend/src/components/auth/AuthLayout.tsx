@@ -23,8 +23,8 @@ export default function AuthLayout({
       <div className="flex min-h-[100dvh] w-full flex-col md:min-h-0 md:max-w-md md:overflow-hidden md:rounded-4xl md:bg-kiwi md:shadow-xl">
         {/* ===== 상단 그린 히어로 ===== */}
         <div className="seed-dots relative px-6 pt-[max(1rem,env(safe-area-inset-top))]">
-          {/* 코랄 글로우 블롭 (분위기) */}
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-pop/25 blur-2xl" />
+          {/* 라이트 그린 글로우 블롭 (분위기) */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-kiwi-light/30 blur-2xl" />
           <div className="pointer-events-none absolute -left-8 top-16 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
 
           <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-2">

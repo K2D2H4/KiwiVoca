@@ -144,7 +144,7 @@ export default function StudyHub() {
             >
               <span
                 className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                  callMode ? "bg-white/20 text-white" : "bg-pop-soft text-pop-dark"
+                  callMode ? "bg-white/20 text-white" : "bg-bark/12 text-bark"
                 }`}
               >
                 <Phone size={22} strokeWidth={2.2} />
@@ -351,7 +351,7 @@ function DeckRow({
           selected
             ? "bg-kiwi text-white"
             : isGrammar
-              ? "bg-pop-soft text-pop-dark"
+              ? "bg-info-soft text-info"
               : "bg-kiwi-100 text-kiwi-700"
         }`}
       >

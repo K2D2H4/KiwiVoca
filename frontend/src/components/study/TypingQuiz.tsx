@@ -135,7 +135,7 @@ export default function TypingQuiz({
               placeholder={t("study.typeHere")}
               className={`min-h-[56px] w-full rounded-2xl border-2 bg-surface px-4 text-lg font-extrabold text-seed shadow-soft transition-[border-color,box-shadow] duration-200 placeholder:text-seed/30 focus:outline-none ${
                 phase === "correct"
-                  ? "border-kiwi shadow-pop"
+                  ? "border-kiwi shadow-kiwi-glow"
                   : phase === "wrong"
                     ? "border-pop shadow-pop"
                     : "border-transparent focus:border-kiwi focus:shadow-[0_0_0_4px_rgba(107,191,89,0.15)]"
@@ -198,7 +198,7 @@ export default function TypingQuiz({
                 type="button"
                 onClick={onNext}
                 whileTap={{ scale: 0.96 }}
-                className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-pop hover:bg-kiwi-dark"
+                className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow hover:bg-kiwi-dark"
               >
                 {index + 1 >= queue.length
                   ? t("study.finish")
@@ -209,7 +209,7 @@ export default function TypingQuiz({
                 type="submit"
                 disabled={!value.trim()}
                 whileTap={{ scale: 0.96 }}
-                className="min-h-[56px] w-full rounded-2xl bg-pop text-base font-extrabold text-white shadow-pop transition-opacity disabled:opacity-40"
+                className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow transition-opacity hover:bg-kiwi-dark disabled:opacity-40"
               >
                 {t("study.check")}
               </motion.button>

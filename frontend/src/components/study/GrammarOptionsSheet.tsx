@@ -244,7 +244,7 @@ export default function GrammarOptionsSheet({
                               "min-h-[40px] rounded-full px-3 text-caption font-bold tracking-tight outline-none transition active:scale-95",
                               "focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                               active
-                                ? "bg-pop text-white shadow-pop"
+                                ? "bg-kiwi text-white shadow-kiwi-glow"
                                 : "bg-surface text-seed/65 ring-1 ring-border/50 hover:text-seed",
                             ].join(" ")}
                           >

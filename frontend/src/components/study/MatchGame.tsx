@@ -159,8 +159,8 @@ export default function MatchGame({
                     tile.side === "term"
                       ? "bg-surface text-seed shadow-soft"
                       : "bg-cream text-seed/90 shadow-soft";
-                  if (isSelected) style = "bg-kiwi text-white shadow-pop";
-                  if (isMatched) style = "bg-kiwi text-white shadow-pop";
+                  if (isSelected) style = "bg-kiwi text-white shadow-kiwi-glow";
+                  if (isMatched) style = "bg-kiwi text-white shadow-kiwi-glow";
                   if (isWrong) style = "bg-pop text-white shadow-pop";
 
                   return (

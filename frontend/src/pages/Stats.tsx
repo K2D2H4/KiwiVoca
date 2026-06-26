@@ -115,7 +115,7 @@ export default function Stats() {
                   <div className="grid w-full grid-cols-3 gap-2.5 sm:grid-cols-1 sm:gap-3">
                     <MiniStat
                       icon={Flame}
-                      tone="pop"
+                      tone="info"
                       value={overview.streak_days}
                       suffix={t("stats.daysUnit")}
                       label={t("stats.streak")}
@@ -174,14 +174,14 @@ function MiniStat({
   label,
 }: {
   icon: LucideIcon;
-  tone: "pop" | "kiwi" | "info";
+  tone: "bark" | "kiwi" | "info";
   value: number;
   suffix?: string;
   label: string;
 }) {
   const display = useCountUp(value, 0.9, 0.2);
   const toneCls = {
-    pop: "bg-pop-soft text-pop-dark",
+    bark: "bg-bark/12 text-bark",
     kiwi: "bg-kiwi-100 text-kiwi-700",
     info: "bg-info-soft text-info",
   }[tone];
@@ -248,7 +248,7 @@ function OverallCard({ overview }: { overview: StatsOverview }) {
         value={mastered_cards}
         total={total_cards}
         pct={masterPct}
-        tone="pop"
+        tone="bark"
         className="mt-4"
       />
     </Card>
@@ -267,7 +267,7 @@ function Row({
   value: number;
   total: number;
   pct: number;
-  tone: "kiwi" | "pop";
+  tone: "kiwi" | "bark";
   className?: string;
 }) {
   return (

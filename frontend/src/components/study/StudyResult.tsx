@@ -88,7 +88,7 @@ export default function StudyResult({
                 initial={{ scale: 0, rotate: -40 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ ...spring.gentle, delay: 0.5 }}
-                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-pop text-white shadow-pop"
+                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-warning text-white shadow-kiwi-glow"
               >
                 <Star size={16} fill="currentColor" strokeWidth={0} />
               </motion.span>
@@ -237,9 +237,9 @@ export default function StudyResult({
   );
 }
 
-// 가벼운 transform 기반 컨페티 — 키위 그린/코랄/연두 조각이 위에서 떨어짐
+// 가벼운 transform 기반 컨페티 — 키위 그린/블루/연두 조각이 위에서 떨어짐
 function Confetti() {
-  const colors = ["bg-kiwi", "bg-pop", "bg-kiwi-light", "bg-bark"];
+  const colors = ["bg-kiwi", "bg-info", "bg-kiwi-light", "bg-bark"];
   const pieces = Array.from({ length: 22 });
   return (
     <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
