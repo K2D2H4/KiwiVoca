@@ -168,12 +168,14 @@
 }
 
 /*
- * CTA 흐르는 그라데이션 외곽선 — "Orchard Pulse"
- * 버튼 둘레를 도는 conic-gradient 링(키위 그린→라임→코랄 pop→크림)이
+ * CTA 흐르는 그라데이션 외곽선 — "Orchard Pulse" (그린 셰머)
+ * 버튼 둘레를 도는 conic-gradient 링(키위 그린→라임 하이라이트→크림/화이트)이
  * @property --orchard-angle 각도 애니메이션으로 천천히 회전한다(GPU 친화: 각도 커스텀 프로퍼티만 변경).
- * ::before = 회전 그라데이션 보더(버튼 radius에 맞춤), ::after = 은은한 그린/코랄 글로우.
- * 버튼 내부 채움(기존 그라데이션)은 그대로 유지 — 클래스를 버튼에 직접 부여한다.
- * 토큰 사용: --kiwi-*, --orchard-*(키위 라이트/코랩)·border, 하드코딩 hex 없음.
+ * ::before = 회전 그라데이션 보더, ::after = 은은한 그린 글로우.
+ * 정렬: ::before를 inset:0로 버튼 박스에 정확히 겹쳐(border-radius:inherit) 외곽 radius를 버튼과 일치시키고,
+ *       마스크로 안쪽을 도려내 링이 버튼 가장자리에 틈 없이 딱 붙게 한다(이중 보더처럼 뜨지 않게).
+ * 버튼 내부 채움(기존 그린 그라데이션)은 그대로 유지 — 클래스를 버튼에 직접 부여한다.
+ * 색: 키위그린 + 라임 + 크림만(코랄 없음). 하드코딩 hex 없이 브랜드 고정 키위 톤 사용.
  */
 @property --orchard-angle {
   syntax: "<angle>";
@@ -192,24 +194,25 @@
   isolation: isolate;
 }
 
-/* 회전 그라데이션 보더 — inset 음수로 옆 요소를 밀지 않고 버튼을 감싼다 */
+/* 회전 그라데이션 보더 — inset:0로 버튼 박스에 정확히 겹쳐 외곽 radius·가장자리를 일치시킨다.
+   링 두께는 padding(2px)이 결정하고, 안쪽을 마스크로 도려내 버튼 채움에 틈 없이 붙는다. */
 .cta-orchard-ring::before {
   content: "";
   position: absolute;
-  inset: -2.5px;
+  inset: 0;
   z-index: -1;
   border-radius: inherit;
-  padding: 2.5px;
+  padding: 2px;
   background: conic-gradient(
     from var(--orchard-angle),
-    rgb(107 191 89) 0%,        /* 키위 그린 */
-    rgb(168 224 143) 18%,      /* 라임 하이라이트 */
-    rgb(255 138 122) 42%,      /* 코랄 pop */
-    rgb(251 248 240 / 0.9) 58%,/* 크림 하이라이트 */
-    rgb(255 138 122) 74%,      /* 코랄 pop */
-    rgb(132 207 106) 100%      /* 키위 그린 */
+    rgb(95 166 60) 0%,         /* 키위 그린(딥) */
+    rgb(168 224 143) 22%,      /* 라임 하이라이트 */
+    rgb(251 248 240 / 0.92) 40%,/* 크림 하이라이트 */
+    rgb(132 207 106) 58%,      /* 키위 그린(밝음) */
+    rgb(168 224 143) 80%,      /* 라임 하이라이트 */
+    rgb(95 166 60) 100%        /* 키위 그린(딥) */
   );
-  /* 링만 보이도록: 내부를 마스크로 도려냄 */
+  /* 링만 보이도록: 내부를 마스크로 도려냄 (content-box vs border-box 차집합) */
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -221,29 +224,30 @@
   animation: orchard-spin 5s linear infinite;
 }
 
-/* 은은한 글로우 — 같은 그라데이션을 흐리게 깔아 발광감(box-shadow 스팸 회피) */
+/* 은은한 그린 글로우 — 같은 그린 그라데이션을 흐리게 깔아 발광감(box-shadow 스팸 회피).
+   글로우는 버튼 밖으로 살짝 번져야 하므로 inset 음수(레이아웃엔 영향 없음). */
 .cta-orchard-ring::after {
   content: "";
   position: absolute;
-  inset: -2.5px;
+  inset: -3px;
   z-index: -2;
   border-radius: inherit;
   background: conic-gradient(
     from var(--orchard-angle),
-    rgb(107 191 89 / 0.55),
+    rgb(95 166 60 / 0.5),
     rgb(168 224 143 / 0.45),
-    rgb(255 138 122 / 0.55),
-    rgb(255 138 122 / 0.4),
-    rgb(107 191 89 / 0.55)
+    rgb(132 207 106 / 0.5),
+    rgb(168 224 143 / 0.4),
+    rgb(95 166 60 / 0.5)
   );
   filter: blur(9px);
-  opacity: 0.6;
+  opacity: 0.55;
   animation: orchard-spin 5s linear infinite;
 }
 
 /* 다크모드 — 글로우·채도 절제(밝은 배경 위 번쩍임 방지) */
 .dark .cta-orchard-ring::after {
-  opacity: 0.42;
+  opacity: 0.4;
   filter: blur(11px);
 }
 

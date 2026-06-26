@@ -1,4 +1,4 @@
-// 탐색 — 공개 단어장 갤러리. 검색(q) + 코랄 악센트 카드 그리드 + "더보기" 페이지네이션.
+// 탐색 — 공개 단어장 갤러리. 검색(q) + 카드 그리드(호버 강조) + "더보기" 페이지네이션.
 // 모바일 우선: 그린 헤더 아래 sticky 검색바, 1열 → sm:2열 → lg:3열. 빈/로딩/에러 상태 처리.
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -174,7 +174,7 @@ export default function Explore() {
   );
 }
 
-// --- 공개 덱 카드 — 코랄(pop) 악센트로 "공유된 덱" 정체성 + owner 칩 ---
+// --- 공개 덱 카드 — 호버 시 카드 강조(리프트+키위 링) + owner 칩 ---
 function PublicDeckCard({ deck }: { deck: PublicDeck }) {
   const { t } = useTranslation();
   const isGrammar = deck.kind === "grammar";
@@ -183,19 +183,13 @@ function PublicDeckCard({ deck }: { deck: PublicDeck }) {
   return (
     <Link
       to={`/explore/${deck.id}`}
-      className="group block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-pop focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+      className="block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-kiwi focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
     >
       <Card
         interactive
         padding="md"
-        className="relative flex h-full min-h-[156px] flex-col overflow-hidden"
+        className="relative flex h-full min-h-[156px] flex-col overflow-hidden hover:-translate-y-1 hover:ring-2 hover:ring-kiwi-400/50"
       >
-        {/* 좌측 코랄 리본 — 공개/공유 표식 */}
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-1 bg-pop"
-        />
-
         <div className="mb-3 flex items-center gap-1.5">
           <Badge tone={isGrammar ? "neutral" : "kiwi"} size="sm">
             {isGrammar ? t("deck.kindGrammar") : t("deck.kindVocab")}
@@ -234,13 +228,6 @@ function PublicDeckCard({ deck }: { deck: PublicDeck }) {
           </span>
         </div>
 
-        {/* hover 시 살짝 드러나는 화살표 (데스크탑) */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-4 top-4 text-pop opacity-0 transition group-hover:opacity-100"
-        >
-          <ArrowRight size={18} />
-        </span>
       </Card>
     </Link>
   );
