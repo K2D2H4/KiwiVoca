@@ -385,41 +385,26 @@ def _normalize_problem(raw: dict, item_count: int) -> dict | None:
 
 # 항목당 생성 문제 수 상한 (프롬프트/응답 폭주 방지)
 # 8 → 6: 후반(per-item 다중 생성)으로 갈수록 빈칸 뒤 잉여 어미/garbage 품질 저하가
-# 심해졌다. 품질 우선으로 6 으로 낮춘다(단일 항목 "여러 문제" 생성은 유지).
-_PER_ITEM_MAX = 6
+# 심해졌다. 품질 우선이되, 단일 항목으로 다수 문제(10/20/30)를 요청하는 경우를
+# 캡으로 막지 않도록 충분히 높게 둔다(반복 학습이라 비슷한 예문도 허용).
+_PER_ITEM_MAX = 40
 # target_count 미지정(0) 시 항목당 기본 생성 수
 _DEFAULT_PER_ITEM = 2
+# 부족분 top-up 포함 Gemini 총 호출 횟수 상한(무한루프/지연 방지)
+_MAX_GEN_ATTEMPTS = 3
 
 
-def generate_problems_for_items(
+def _build_problems_prompt(
     items: list[dict],
     lang_term: str,
     lang_def: str,
-    target_count: int = 0,
-) -> list[dict]:
-    """선택된 문법 항목 리스트로부터 연습문제를 1회 배치 호출로 즉석 생성한다.
+    per_item: int,
+    avoid_prompts: list[str] | None = None,
+) -> str:
+    """문제 생성 프롬프트를 만든다(초기/추가 생성 공용).
 
-    items 각 원소: {id?, point, explanation, example?, level?, category?}
-    반환 problem: {item_id, kind, prompt, answer, options, base_form, explanation}
-
-    - target_count: 생성할 "총 문제 수". 항목들에 고르게 분배한다(반복 학습).
-      0 이면 항목당 기본(_DEFAULT_PER_ITEM)개로 생성한다.
-    - 분배: per_item = clamp(ceil(target_count / 항목수), 1, _PER_ITEM_MAX).
-      각 항목당 per_item 개의 "서로 다른 예문"을 만들고(중복 금지), 최종적으로
-      target_count 개로 트림한다. 같은 항목이 몰리지 않게 인터리브한다.
-    - 기본은 choice(보기 4개), 난이도는 낮게. base_form 은 빈칸 표현의 기본형/원형.
-    - items 가 비면 빈 리스트 반환(Gemini 호출 안 함).
+    avoid_prompts 가 있으면 "이미 만든 문장과 겹치지 마라" 힌트를 덧붙인다(top-up용).
     """
-    if not items:
-        return []
-
-    item_count = len(items)
-    if target_count and target_count > 0:
-        per_item = max(1, min(math.ceil(target_count / item_count), _PER_ITEM_MAX))
-    else:
-        per_item = _DEFAULT_PER_ITEM
-
-    # Gemini 에는 인덱스 기반으로 전달하고, 응답을 다시 item_id 로 매핑한다.
     lines: list[str] = []
     for idx, it in enumerate(items):
         point = _clean(it.get("point"))
@@ -429,11 +414,22 @@ def generate_problems_for_items(
         lines.append(f"[{idx}] {point} — {explanation}{ex}")
     item_block = "\n".join(lines)
 
-    prompt = (
+    avoid_block = ""
+    if avoid_prompts:
+        # 과도한 길이 방지를 위해 최근 일부만 제시
+        recent = avoid_prompts[-40:]
+        joined = "\n".join(f"- {p}" for p in recent)
+        avoid_block = (
+            "\n아래 문장들은 이미 만들었으니 '똑같은 문장'은 다시 만들지 마라"
+            "(비슷한 상황은 허용, 동일 문장만 금지):\n"
+            f"{joined}\n"
+        )
+
+    return (
         f"학습 언어 '{lang_term}' 의 아래 문법 항목들로 빈칸 채우기 연습문제를 만들어라.\n"
         f"각 문법 항목(아래 [n])마다 정확히 {per_item}개의 문제를 만들어라(반복 학습용).\n"
-        f"같은 항목의 {per_item}개 문제는 반드시 서로 다른 예문/문장으로 만들고, "
-        "문장이나 정답이 중복되지 않게 하라.\n"
+        f"같은 항목의 {per_item}개 문제는 가능하면 서로 다른 예문/문장으로 만들되, "
+        "반복 학습이므로 비슷한 상황의 예문은 허용한다(완전히 동일한 문장만 피하라).\n"
         "기본은 choice(객관식)로 만들고, 일부만 typing(주관식)으로 하라. 난이도는 낮게.\n\n"
         "■ 빈칸/정답 규칙 (반드시 지켜라):\n"
         "1) prompt 는 완전하고 자연스러운 문장이어야 하며, '___' 자리에 answer 를 "
@@ -473,24 +469,33 @@ def generate_problems_for_items(
         "정답과 시제/높임만 달라 문맥상 둘 다 맞는 보기는 금지. typing 이면 빈 배열\n"
         "- base_form: 빈칸에 들어갈 표현의 기본형/원형(예: 동사 '먹다'). 학습자가 풀 수 있도록 컨텍스트 제공\n"
         f"- explanation: 짧은 해설('{lang_def}' 언어로, 없으면 빈 문자열)\n\n"
+        f"{avoid_block}"
         f"문법 항목:\n{item_block}"
     )
 
-    parsed = _generate([prompt], _PROBLEMS_RESPONSE_SCHEMA)
 
-    # 항목별로 모은 뒤(중복 prompt 제거), 인터리브로 펼친다.
-    by_index: dict[int, list[dict]] = {}
+def _collect_into_buckets(
+    parsed: list,
+    items: list[dict],
+    by_index: dict[int, list[dict]],
+    seen_prompts: set[str],
+) -> None:
+    """Gemini 응답을 정규화/필터해 항목별 버킷에 누적한다(in-place).
+
+    - _normalize_problem 으로 깨진/garbage 문제 폐기(품질 유지).
+    - 완전히 동일한 prompt(seen_prompts)만 중복 제거(유사 예문은 허용).
+    """
+    item_count = len(items)
     for raw in parsed:
         norm = _normalize_problem(raw, item_count)
         if norm is None:
             continue
-        idx = norm["item_index"]
-        bucket = by_index.setdefault(idx, [])
-        # 같은 항목 내 동일 prompt 중복은 버린다(서로 다른 예문 보장)
-        if any(p["prompt"] == norm["prompt"] for p in bucket):
+        if norm["prompt"] in seen_prompts:
             continue
+        seen_prompts.add(norm["prompt"])
+        idx = norm["item_index"]
         item = items[idx]
-        bucket.append(
+        by_index.setdefault(idx, []).append(
             {
                 "item_id": item.get("id"),
                 "kind": norm["kind"],
@@ -501,6 +506,77 @@ def generate_problems_for_items(
                 "explanation": norm["explanation"],
             }
         )
+
+
+def generate_problems_for_items(
+    items: list[dict],
+    lang_term: str,
+    lang_def: str,
+    target_count: int = 0,
+) -> list[dict]:
+    """선택된 문법 항목 리스트로부터 연습문제를 즉석 생성한다.
+
+    items 각 원소: {id?, point, explanation, example?, level?, category?}
+    반환 problem: {item_id, kind, prompt, answer, options, base_form, explanation}
+
+    - target_count: 생성할 "총 문제 수". 항목들에 고르게 분배한다(반복 학습).
+      0 이면 항목당 기본(_DEFAULT_PER_ITEM)개로 생성한다.
+    - per_item 산정: 단일 항목이면 target 까지(캡 _PER_ITEM_MAX) 한 항목이 모두 채운다.
+      멀티 항목이면 clamp(ceil(target / 항목수), 1, _PER_ITEM_MAX) 로 분배한다.
+    - top-up: 1차 생성+필터 후 유효 문제가 target 보다 적으면, 부족분만큼 추가 Gemini
+      호출로 채운다(총 호출 _MAX_GEN_ATTEMPTS 회 상한). 그래도 모자라면 가능한 만큼 반환.
+    - _normalize_problem(중복/garbage 폐기)·보기 모호 방지 규칙은 유지(품질).
+      개수는 top-up 으로 보충하되, 완전 동일 prompt 만 중복 제거(유사 예문 허용).
+    - 기본은 choice(보기 4개), 난이도는 낮게. base_form 은 빈칸 표현의 기본형/원형.
+    - items 가 비면 빈 리스트 반환(Gemini 호출 안 함).
+    """
+    if not items:
+        return []
+
+    item_count = len(items)
+    if target_count and target_count > 0:
+        if item_count == 1:
+            per_item = min(target_count, _PER_ITEM_MAX)
+        else:
+            per_item = max(1, min(math.ceil(target_count / item_count), _PER_ITEM_MAX))
+    else:
+        per_item = _DEFAULT_PER_ITEM
+
+    by_index: dict[int, list[dict]] = {}
+    seen_prompts: set[str] = set()
+
+    # 1차 생성
+    prompt = _build_problems_prompt(items, lang_term, lang_def, per_item)
+    parsed = _generate([prompt], _PROBLEMS_RESPONSE_SCHEMA)
+    _collect_into_buckets(parsed, items, by_index, seen_prompts)
+
+    def _total() -> int:
+        return sum(len(b) for b in by_index.values())
+
+    # top-up: target 에 못 미치면 부족분만큼 추가 호출(총 호출 _MAX_GEN_ATTEMPTS 회까지)
+    attempts = 1
+    if target_count and target_count > 0:
+        while _total() < target_count and attempts < _MAX_GEN_ATTEMPTS:
+            deficit = target_count - _total()
+            # 부족분을 항목 수로 분배해 추가 요청(최소 항목당 1개)
+            extra_per_item = max(1, math.ceil(deficit / item_count))
+            extra_per_item = min(extra_per_item, _PER_ITEM_MAX)
+            avoid = list(seen_prompts)
+            topup_prompt = _build_problems_prompt(
+                items, lang_term, lang_def, extra_per_item, avoid_prompts=avoid
+            )
+            try:
+                more = _generate([topup_prompt], _PROBLEMS_RESPONSE_SCHEMA)
+            except GrammarError:
+                # top-up 실패는 치명적이지 않다 — 지금까지 모은 것으로 진행
+                logger.warning("Grammar problem top-up call failed; returning partial")
+                break
+            before = _total()
+            _collect_into_buckets(more, items, by_index, seen_prompts)
+            attempts += 1
+            # 진전이 없으면(새 문제 0개) 더 돌려도 의미 없으니 중단
+            if _total() == before:
+                break
 
     # 항목별 버킷 내부를 섞어 다양성 확보
     for bucket in by_index.values():
