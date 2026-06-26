@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import KiwiBuddy from "../KiwiBuddy";
 import LanguageSwitcher from "../LanguageSwitcher";
+import LogoWordmark from "../LogoWordmark";
 
 interface AuthLayoutProps {
   title: string;
@@ -26,7 +27,8 @@ export default function AuthLayout({
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-pop/25 blur-2xl" />
           <div className="pointer-events-none absolute -left-8 top-16 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
 
-          <div className="relative mx-auto flex w-full max-w-md items-center justify-end pt-2">
+          <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-2">
+            <LogoWordmark height={60} />
             <LanguageSwitcher />
           </div>
 

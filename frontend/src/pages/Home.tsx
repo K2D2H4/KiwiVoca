@@ -11,7 +11,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import KiwiMark from "../components/KiwiMark";
+import LogoWordmark from "../components/LogoWordmark";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import CreateSheet from "../components/layout/CreateSheet";
 import DeckCard from "../components/deck/DeckCard";
@@ -97,12 +97,7 @@ export default function Home() {
       {/* 상단 그린 헤더 */}
       <header className="seed-dots bg-kiwi px-5 pb-7 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between pt-2 md:hidden">
-          <div className="flex items-center gap-2">
-            <KiwiMark size={30} />
-            <span className="font-display text-lg font-extrabold text-white">
-              {t("app.name")}
-            </span>
-          </div>
+          <LogoWordmark height={60} />
           <LanguageSwitcher />
         </div>
 

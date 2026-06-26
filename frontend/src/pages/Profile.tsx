@@ -141,7 +141,7 @@ export default function Profile() {
                 {t("common.language")}
               </p>
             </div>
-            <LanguageSwitcher />
+            <LanguageSwitcher variant="field" />
           </Card>
         </motion.div>
 

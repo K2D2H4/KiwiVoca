@@ -14,7 +14,7 @@ import {
   Compass,
   type LucideIcon,
 } from "lucide-react";
-import KiwiMark from "../KiwiMark";
+import LogoWordmark from "../LogoWordmark";
 import LanguageSwitcher from "../LanguageSwitcher";
 import ThemeToggle from "../ThemeToggle";
 import Avatar from "../ui/Avatar";
@@ -61,12 +61,10 @@ export default function AppShell() {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="mb-8 flex items-center gap-2.5 px-2 text-left transition active:scale-95"
+          className="mb-8 flex items-center px-2 text-left transition active:scale-95"
+          aria-label={t("app.name")}
         >
-          <KiwiMark size={36} />
-          <span className="font-display text-h2 font-bold text-seed">
-            {t("app.name")}
-          </span>
+          <LogoWordmark height={86} />
         </button>
 
         <nav className="flex flex-1 flex-col gap-1">
@@ -113,7 +111,7 @@ export default function AppShell() {
             <ThemeToggle variant="compact" />
           </div>
           <div className="mb-3 px-1">
-            <LanguageSwitcher />
+            <LanguageSwitcher variant="surface" />
           </div>
           <button
             type="button"
