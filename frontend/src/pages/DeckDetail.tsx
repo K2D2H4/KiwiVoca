@@ -528,6 +528,11 @@ export default function DeckDetail() {
                     item={item}
                     index={i}
                     onToggleLearned={onToggleGrammarLearned}
+                    onPractice={() =>
+                      navigate(
+                        `/grammar/practice?decks=${id}&items=${item.id}`
+                      )
+                    }
                   />
                 ))}
               </ul>
@@ -641,10 +646,12 @@ function GrammarItemRow({
   item,
   index,
   onToggleLearned,
+  onPractice,
 }: {
   item: GrammarItem;
   index: number;
   onToggleLearned: (itemId: number, next: boolean) => void;
+  onPractice: () => void;
 }) {
   const { t } = useTranslation();
   const learned = item.progress.is_learned;
@@ -687,11 +694,12 @@ function GrammarItemRow({
           </div>
         </div>
 
-        {/* 학습완료 토글 — 직관적 체크박스 + 라벨 (≥44px 터치) */}
-        <div className="mt-2.5 border-t border-border pt-2.5">
+        {/* 푸터 — 학습완료 토글(좌) + 단일 항목 연습 CTA(우). 명확히 구분되는 두 액션. */}
+        <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border pt-2.5">
+          {/* 학습완료 토글 — 직관적 체크박스 + 라벨 (≥44px 터치) */}
           <label
             htmlFor={checkId}
-            className="flex min-h-[44px] cursor-pointer select-none items-center gap-2.5"
+            className="flex min-h-[44px] min-w-0 flex-1 cursor-pointer select-none items-center gap-2.5"
           >
             <span
               className={[
@@ -712,13 +720,23 @@ function GrammarItemRow({
             />
             <span
               className={[
-                "text-body-sm font-bold",
+                "truncate text-body-sm font-bold",
                 learned ? "text-kiwi-700" : "text-seed/55",
               ].join(" ")}
             >
               {learned ? t("card.markUnlearned") : t("card.markLearned")}
             </span>
           </label>
+
+          {/* 단일 항목 연습 — 이 문법 하나로 여러 문제 출제 */}
+          <button
+            type="button"
+            onClick={onPractice}
+            className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full bg-kiwi px-4 text-body-sm font-extrabold text-white shadow-kiwi-glow outline-none transition active:scale-95 hover:bg-kiwi-dark focus-visible:ring-2 focus-visible:ring-kiwi-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          >
+            <Play size={14} fill="currentColor" strokeWidth={0} />
+            {t("grammar.practiceItem")}
+          </button>
         </div>
       </Card>
     </li>

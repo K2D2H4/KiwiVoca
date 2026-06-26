@@ -13,18 +13,22 @@ export interface GrammarPracticeOptions {
   levels: string[];
   categories: string[];
   scope: PracticeScope;
-  limit: number; // 0 = 전체
+  limit: number; // 생성할 문제 수
 }
 
 interface GrammarOptionsSheetProps {
   open: boolean;
   levels: GrammarFilterLevel[];
   loading?: boolean;
+  // 단일 항목 연습 모드 — 레벨/카테고리/범위 숨기고 "문제 수"만 고름
+  itemMode?: boolean;
   onClose: () => void;
   onStart: (opts: GrammarPracticeOptions) => void;
 }
 
-const COUNT_PRESETS = [20, 0] as const; // 0 = 전체
+// 생성할 문제 수(반복 학습) 프리셋
+const COUNT_PRESETS = [10, 20, 30] as const;
+const DEFAULT_COUNT = 10;
 
 // 카테고리 키 — 레벨이 달라도 같은 이름 카테고리를 구분(레벨::카테고리)
 const catKey = (level: string, category: string) => `${level}::${category}`;
@@ -42,6 +46,7 @@ export default function GrammarOptionsSheet({
   open,
   levels,
   loading,
+  itemMode = false,
   onClose,
   onStart,
 }: GrammarOptionsSheetProps) {
@@ -51,7 +56,7 @@ export default function GrammarOptionsSheet({
   const [selLevels, setSelLevels] = useState<string[]>([]);
   const [selCats, setSelCats] = useState<string[]>([]);
   const [scope, setScope] = useState<PracticeScope>("all");
-  const [count, setCount] = useState<number | "custom">(20);
+  const [count, setCount] = useState<number | "custom">(DEFAULT_COUNT);
   const [customValue, setCustomValue] = useState("");
 
   // 시트 열릴 때 기본값 리셋(필터 미선택 = 전체)
@@ -60,7 +65,7 @@ export default function GrammarOptionsSheet({
       setSelLevels([]);
       setSelCats([]);
       setScope("all");
-      setCount(20);
+      setCount(DEFAULT_COUNT);
       setCustomValue("");
     }
   }, [open]);
@@ -119,9 +124,12 @@ export default function GrammarOptionsSheet({
     return count;
   }, [count, customValue]);
 
+  // limit = 생성할 문제 수이므로 양수여야 시작 가능.
+  // 항목 모드는 필터 가용수와 무관(특정 항목만 연습) → available 게이트 제외.
   const canStart =
-    available > 0 &&
-    (count !== "custom" || Number.isFinite(resolvedLimit));
+    Number.isFinite(resolvedLimit) &&
+    resolvedLimit > 0 &&
+    (itemMode || available > 0);
 
   const handleStart = () => {
     if (!canStart) return;
@@ -130,28 +138,30 @@ export default function GrammarOptionsSheet({
       new Set(selCats.map((k) => k.split("::").slice(1).join("::")))
     );
     onStart({
-      levels: selLevels,
-      categories: cats,
-      scope,
-      limit: Number.isFinite(resolvedLimit) ? resolvedLimit : 0,
+      levels: itemMode ? [] : selLevels,
+      categories: itemMode ? [] : cats,
+      scope: itemMode ? "all" : scope,
+      limit: resolvedLimit,
     });
   };
-
-  const countLabel = (v: (typeof COUNT_PRESETS)[number]) =>
-    v === 0 ? t("study.countAll") : String(v);
 
   return (
     <Sheet open={open} onClose={onClose} ariaLabel={t("grammar.practice.optionsTitle")}>
       <div className="mb-4">
         <h2 className="text-h3 font-bold text-seed">
-          {t("grammar.practice.optionsTitle")}
+          {itemMode
+            ? t("grammar.practice.optionsTitleItem")
+            : t("grammar.practice.optionsTitle")}
         </h2>
         <p className="mt-0.5 text-body-sm text-seed/50">
-          {t("grammar.practice.optionsHint")}
+          {itemMode
+            ? t("grammar.practice.optionsHintItem")
+            : t("grammar.practice.optionsHint")}
         </p>
       </div>
 
-      {/* 레벨 선택 (다중) */}
+      {/* 레벨 선택 (다중) — 덱 모드만 */}
+      {!itemMode && (
       <div className="mb-4">
         <p className="mb-2 text-caption font-bold uppercase tracking-wide text-seed/45">
           {t("grammar.filter.levelLabel")}
@@ -191,8 +201,10 @@ export default function GrammarOptionsSheet({
             : t("grammar.filter.levelSelected", { count: selLevels.length })}
         </p>
       </div>
+      )}
 
-      {/* 카테고리 선택 (선택된 각 레벨별 다층) */}
+      {/* 카테고리 선택 (선택된 각 레벨별 다층) — 덱 모드만 */}
+      {!itemMode && (
       <AnimatePresence initial={false}>
         {activeLevels.length > 0 && (
           <motion.div
@@ -253,8 +265,10 @@ export default function GrammarOptionsSheet({
           </motion.div>
         )}
       </AnimatePresence>
+      )}
 
-      {/* 범위 */}
+      {/* 범위 — 덱 모드만 */}
+      {!itemMode && (
       <div className="mb-4">
         <p className="mb-2 text-caption font-bold uppercase tracking-wide text-seed/45">
           {t("study.scopeLabel")}
@@ -272,15 +286,16 @@ export default function GrammarOptionsSheet({
         <p className="mt-2 flex items-center gap-1.5 px-1 text-caption font-bold text-kiwi-700">
           <Sparkles size={13} strokeWidth={2.6} />
           {loading
-            ? t("grammar.practice.summaryLoading")
-            : t("grammar.practice.summaryAvailable", { count: available })}
+            ? t("grammar.practice.summaryAvailableLoading")
+            : t("grammar.practice.summaryAvailableItems", { count: available })}
         </p>
       </div>
+      )}
 
-      {/* 개수 */}
+      {/* 문제 수 — 생성할 연습 문제 개수(반복 학습) */}
       <div className="mb-5">
         <p className="mb-2 text-caption font-bold uppercase tracking-wide text-seed/45">
-          {t("study.countLabel")}
+          {t("grammar.practice.problemCountLabel")}
         </p>
         <div className="flex flex-wrap gap-2">
           {COUNT_PRESETS.map((v) => (
@@ -291,7 +306,7 @@ export default function GrammarOptionsSheet({
               onClick={() => setCount(v)}
               className={chipClass(count === v)}
             >
-              {countLabel(v)}
+              {v}
             </button>
           ))}
           <button
@@ -315,6 +330,13 @@ export default function GrammarOptionsSheet({
               autoFocus
             />
           </div>
+        )}
+        {/* 프리뷰 — 생성할 연습 문제 수를 명확히 안내 */}
+        {Number.isFinite(resolvedLimit) && resolvedLimit > 0 && (
+          <p className="mt-2 flex items-center gap-1.5 px-1 text-caption font-bold text-kiwi-700">
+            <Sparkles size={13} strokeWidth={2.6} />
+            {t("grammar.practice.problemCountPreview", { count: resolvedLimit })}
+          </p>
         )}
       </div>
 

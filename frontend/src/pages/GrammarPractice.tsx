@@ -38,6 +38,17 @@ export default function GrammarPractice() {
     return raw ? raw.split(",").filter(Boolean) : [];
   }, [params]);
 
+  // 단일 항목 연습 — items(콤마) → item ids. 있으면 itemMode(필터 숨김).
+  const itemIds = useMemo<number[]>(() => {
+    const raw = params.get("items");
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  }, [params]);
+  const itemMode = itemIds.length > 0;
+
   // 필터/옵션 쿼리 — 하나라도 있으면 "구성됨"으로 보고 시트 생략
   const levels = useMemo(() => splitParam(params.get("levels")), [params]);
   const categories = useMemo(
@@ -67,16 +78,19 @@ export default function GrammarPractice() {
 
   // 현재 쿼리(덱/필터/옵션) 시그니처 — 같은 구성에서 중복 생성 방지용.
   const sig = useMemo(() => {
-    if (!configured || deckIds.length === 0) return null;
+    // 덱 또는 항목 중 하나는 있어야 구성됨
+    if (!configured || (deckIds.length === 0 && itemIds.length === 0))
+      return null;
     return JSON.stringify({
       deckIds: [...deckIds].sort(),
+      itemIds: [...itemIds].sort((a, b) => a - b),
       levels: [...levels].sort(),
       categories: [...categories].sort(),
       scope,
       limit,
       order,
     });
-  }, [configured, deckIds, levels, categories, scope, limit, order]);
+  }, [configured, deckIds, itemIds, levels, categories, scope, limit, order]);
 
   // 구성되면 즉석 생성 호출. 시그니처가 바뀌었을 때만 새로 요청.
   // ⚠️ 딥링크(start=1) 직진입 시 행 방지: ref만으로 가드하면
@@ -90,6 +104,7 @@ export default function GrammarPractice() {
     requestedSig.current = sig;
     runPractice({
       deckIds,
+      itemIds,
       levels,
       categories,
       scope,
@@ -100,6 +115,7 @@ export default function GrammarPractice() {
     sig,
     practiceStatus,
     deckIds,
+    itemIds,
     levels,
     categories,
     scope,
@@ -130,8 +146,8 @@ export default function GrammarPractice() {
     [params, setParams, resetPractice]
   );
 
-  // 덱 미지정 — 잘못된 진입
-  if (deckIds.length === 0) {
+  // 덱·항목 모두 미지정 — 잘못된 진입
+  if (deckIds.length === 0 && itemIds.length === 0) {
     return <CenteredNotice text={t("grammar.practice.noDeck")} onBack={close} />;
   }
 
@@ -147,6 +163,7 @@ export default function GrammarPractice() {
           open={sheetOpen}
           levels={filtersQuery.data?.levels ?? []}
           loading={filtersQuery.isLoading}
+          itemMode={itemMode}
           onClose={close}
           onStart={startWith}
         />

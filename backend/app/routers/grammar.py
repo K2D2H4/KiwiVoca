@@ -69,6 +69,9 @@ MAX_TOTAL_BYTES = 25 * 1024 * 1024  # 25MB 합계
 _BOX_MIN = 0
 _BOX_MAX = 5
 
+# 연습 1회에 프롬프트로 넘길 문법 항목 수 상한 (limit=문제 수와 별개, 폭주 방지)
+_MAX_PRACTICE_ITEMS = 30
+
 
 # ----------------------------- 소유권 헬퍼 -----------------------------
 
@@ -104,6 +107,19 @@ def _verify_owned_decks(db: Session, user: User, deck_ids: list[int]) -> None:
     )
     if len({row[0] for row in owned}) != len(unique_ids):
         raise _DECK_NOT_FOUND
+
+
+def _verify_owned_grammar_items(db: Session, user: User, item_ids: list[int]) -> None:
+    """item_ids 가 모두 현재 사용자 소유(item -> deck -> user)인지 검증. 하나라도 아니면 404."""
+    unique_ids = set(item_ids)
+    owned = (
+        db.query(GrammarItem.id)
+        .join(Deck, GrammarItem.deck_id == Deck.id)
+        .filter(GrammarItem.id.in_(unique_ids), Deck.user_id == user.id)
+        .all()
+    )
+    if len({row[0] for row in owned}) != len(unique_ids):
+        raise _ITEM_NOT_FOUND
 
 
 def _get_owned_grammar_item(db: Session, user: User, item_id: int) -> GrammarItem:
@@ -341,14 +357,25 @@ async def start_practice(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PracticeResponse:
-    """선택된 덱/필터로 문법 항목을 고른 뒤, 그 항목들로부터 연습문제를 즉석 생성한다.
+    """선택된 덱/필터(또는 특정 item_ids)로 문법 항목을 고른 뒤, 그 항목들로부터
+    연습문제를 즉석 생성한다.
 
+    limit 는 "생성할 문제 수"를 의미한다(항목 수 아님). 항목들에 분배되어
+    항목당 여러 문제(반복 학습)가 생성된다. 항목은 프롬프트 폭주 방지로 최대
+    _MAX_PRACTICE_ITEMS 개로 캡한다.
     문제는 저장하지 않는다. levels/categories 다중 필터, scope=unlearned 면 학습완료 제외,
-    order=weak(약한 항목 우선)|random, limit=0 전체. 항목 0개면 빈 problems.
+    order=weak(약한 항목 우선)|random. 항목 0개면 빈 problems.
     Gemini 실패는 502(한국어) 로 매핑하되, graceful 하게 동작한다.
     """
-    _verify_owned_decks(db, current_user, payload.deck_ids)
-    unique_ids = list(set(payload.deck_ids))
+    # deck_ids / item_ids 소유권 검증 (둘 중 하나 이상은 스키마에서 보장)
+    unique_deck_ids: list[int] = []
+    unique_item_ids: list[int] = []
+    if payload.deck_ids:
+        _verify_owned_decks(db, current_user, payload.deck_ids)
+        unique_deck_ids = list(set(payload.deck_ids))
+    if payload.item_ids:
+        unique_item_ids = list(set(payload.item_ids))
+        _verify_owned_grammar_items(db, current_user, unique_item_ids)
 
     level_list = [s for s in (payload.levels or []) if s]
     cat_list = [s for s in (payload.categories or []) if s]
@@ -361,8 +388,12 @@ async def start_practice(
             (GrammarProgress.grammar_item_id == GrammarItem.id)
             & (GrammarProgress.user_id == current_user.id),
         )
-        .where(GrammarItem.deck_id.in_(unique_ids))
     )
+    # item_ids 가 있으면 그 항목들로 제한, 없으면 deck_ids 범위로 제한
+    if unique_item_ids:
+        stmt = stmt.where(GrammarItem.id.in_(unique_item_ids))
+    else:
+        stmt = stmt.where(GrammarItem.deck_id.in_(unique_deck_ids))
     if level_list:
         stmt = stmt.where(GrammarItem.level.in_(level_list))
     if cat_list:
@@ -382,8 +413,8 @@ async def start_practice(
             GrammarItem.position.asc(),
             GrammarItem.id.asc(),
         )
-    if payload.limit > 0:
-        stmt = stmt.limit(payload.limit)
+    # 항목 수만 상한으로 캡한다(limit 은 문제 수이므로 항목 수와 무관).
+    stmt = stmt.limit(_MAX_PRACTICE_ITEMS)
 
     rows = db.execute(stmt).all()
     if not rows:
@@ -414,10 +445,11 @@ async def start_practice(
             "progress": _progress_info(progress),
         }
 
-    # 덱 언어는 첫 덱 기준(설명 언어 힌트용)
+    # 덱 언어는 선택된 항목들이 속한 덱 기준(설명 언어 힌트용)
+    selected_deck_ids = {item.deck_id for item, _ in rows}
     first_deck = (
         db.query(Deck.lang_term, Deck.lang_def)
-        .filter(Deck.id.in_(unique_ids))
+        .filter(Deck.id.in_(selected_deck_ids))
         .first()
     )
     if first_deck is not None:
@@ -429,6 +461,7 @@ async def start_practice(
             items=items_for_gen,
             lang_term=lang_term,
             lang_def=lang_def,
+            target_count=payload.limit,
         )
     except GrammarError as exc:
         raise HTTPException(

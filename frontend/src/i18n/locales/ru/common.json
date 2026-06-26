@@ -370,8 +370,15 @@
       "reviewList": "Повторить грамматику",
       "generating": "Создаём задания…",
       "generatingHint": "Подождите — мы готовим для вас новые вопросы.",
-      "baseFormLabel": "Базовая форма"
-    }
+      "baseFormLabel": "Базовая форма",
+      "optionsTitleItem": "Практика по теме",
+      "optionsHintItem": "Создадим задания по этой теме.",
+      "problemCountLabel": "Вопросы",
+      "problemCountPreview": "Создать {{count}} вопросов",
+      "summaryAvailableLoading": "Считаем темы…",
+      "summaryAvailableItems": "Выбрано тем: {{count}}"
+    },
+    "practiceItem": "Практика"
   },
   "tts": {
     "play": "Прослушать произношение"

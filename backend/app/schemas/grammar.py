@@ -133,14 +133,26 @@ class FiltersResponse(BaseModel):
 # ----------------------------- 연습 출제 (즉석 생성) -----------------------------
 
 class PracticeRequest(BaseModel):
-    """연습 시작 요청 — 선택된 덱/필터로 항목을 고른 뒤 문제를 즉석 생성한다."""
+    """연습 시작 요청 — 선택된 덱/필터(또는 특정 항목)로 항목을 고른 뒤 문제를 즉석 생성한다.
 
-    deck_ids: list[int] = Field(min_length=1)
+    limit 는 "생성할 문제 수"를 의미한다(항목 수 아님). 0 이면 합리적 기본값.
+    deck_ids 또는 item_ids 중 최소 하나를 지정해야 한다.
+    item_ids 가 주어지면 그 문법 항목들만 연습한다(특정 문법 선택 연습).
+    """
+
+    deck_ids: list[int] | None = None
+    item_ids: list[int] | None = None
     levels: list[str] | None = None
     categories: list[str] | None = None
     scope: Literal["all", "unlearned"] = "all"
-    limit: int = Field(default=0, ge=0, le=1000)  # 0=전체(항목 선택 상한)
+    limit: int = Field(default=0, ge=0, le=1000)  # =생성할 문제 수. 0=기본값
     order: Literal["weak", "random"] = "weak"
+
+    @model_validator(mode="after")
+    def _at_least_one_source(self) -> "PracticeRequest":
+        if not self.deck_ids and not self.item_ids:
+            raise ValueError("deck_ids 또는 item_ids 중 최소 하나를 지정해야 합니다.")
+        return self
 
 
 class PracticeProblem(BaseModel):

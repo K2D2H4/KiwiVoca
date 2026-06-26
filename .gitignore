@@ -48,3 +48,7 @@ frontend/.ds-styles.css
 # QA 에이전트 임시 산출물
 scratchpad_qa*.txt
 *_qa_accts.txt
+
+# QA/E2E 임시 산출물
+.playwright-mcp/
+grammar-practice-*.png

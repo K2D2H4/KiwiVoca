@@ -368,8 +368,15 @@
       "reviewList": "復習する文法",
       "generating": "問題を作成中…",
       "generatingHint": "少々お待ちを。ぴったりの問題を用意しています。",
-      "baseFormLabel": "基本形"
-    }
+      "baseFormLabel": "基本形",
+      "optionsTitleItem": "この文法を練習",
+      "optionsHintItem": "この文法から練習問題を作ります。",
+      "problemCountLabel": "問題数",
+      "problemCountPreview": "練習問題を{{count}}個作る",
+      "summaryAvailableLoading": "文法を数えています…",
+      "summaryAvailableItems": "文法{{count}}個を選択"
+    },
+    "practiceItem": "練習"
   },
   "tts": {
     "play": "発音を聞く"

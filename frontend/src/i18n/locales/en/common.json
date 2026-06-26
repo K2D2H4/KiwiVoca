@@ -368,8 +368,15 @@
       "reviewList": "Review grammar",
       "generating": "Building your questions…",
       "generatingHint": "Hang tight — we're crafting fresh problems for you.",
-      "baseFormLabel": "Base form"
-    }
+      "baseFormLabel": "Base form",
+      "optionsTitleItem": "Practice this point",
+      "optionsHintItem": "We'll build practice questions from this point.",
+      "problemCountLabel": "Questions",
+      "problemCountPreview": "Make {{count}} questions",
+      "summaryAvailableLoading": "Counting grammar…",
+      "summaryAvailableItems": "{{count}} grammar selected"
+    },
+    "practiceItem": "Practice"
   },
   "tts": {
     "play": "Listen to pronunciation"

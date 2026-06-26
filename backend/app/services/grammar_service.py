@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import random
 
 from google import genai
 from google.genai import types
@@ -271,11 +273,73 @@ def generate_grammar(
     return _normalize_items(parsed)
 
 
+# 빈칸 표식
+_BLANK = "___"
+# 빈칸 뒤 잉여 텍스트에서 무시할 양끝 공백/문장부호
+_TRAILING_IGNORE = " 　.,!?。、…​\t\n"
+# 한국어 종결어미 후보 — answer 가 이걸로 끝나면 빈칸 뒤 짧은 잉여 토큰은 garbage 의심
+_KO_ENDINGS = (
+    "이에요", "예요", "어요", "아요", "여요", "해요",
+    "습니다", "ㅂ니다", "니다", "요", "다",
+)
+
+
+def _common_suffix_len(a: str, b: str) -> int:
+    """a 와 b 의 공통 접미사(말미부터 동일한 글자 수)."""
+    n = 0
+    while n < len(a) and n < len(b) and a[-1 - n] == b[-1 - n]:
+        n += 1
+    return n
+
+
+def _is_broken_blank(prompt: str, answer: str) -> bool:
+    """빈칸 채우기 문제가 깨졌으면 True (보수적: 명백한 경우만 폐기).
+
+    빈칸('___')에 answer 를 채웠을 때 중복/비문이 되는 경우를 거른다.
+
+    깨짐 판정:
+    1) '___' 가 정확히 1개가 아니다.
+    2) answer 가 prompt 의 빈칸 밖에 그대로 또 등장한다 (이중 노출).
+    3) 빈칸 뒤 잉여 텍스트(앞뒤 공백/문장부호 무시)가 answer 의 말미와 중복된다:
+       - answer 와 tail 의 공통 접미사가 2글자 이상 (예: '덮였어요' + 뒤 '었어요'),
+       - 또는 공통 접미사 1글자이면서 tail 이 짧은 잉여 조각(≤2글자, 예: '섞여요' + '요').
+    4) answer 가 종결어미로 끝나는데 빈칸 뒤에 짧은(≤2글자) 잉여 토큰이 매달려 있다
+       (예: '보여요' + 뒤 '임' 같은 의미 없는 garbage).
+    보수적으로, 빈칸 뒤가 비었거나 긴 후속 절이면 깨짐으로 보지 않는다.
+    """
+    if prompt.count(_BLANK) != 1:
+        return True
+
+    before, after = prompt.split(_BLANK, 1)
+
+    # (2) 이중 노출: 빈칸을 뺀 나머지 텍스트에 answer 가 그대로 또 있으면 버린다.
+    if answer and answer in (before + after):
+        return True
+
+    tail = after.strip(_TRAILING_IGNORE)
+    if not tail or not answer:
+        return False
+
+    # (3) 빈칸 뒤 잉여 어미 중복
+    overlap = _common_suffix_len(answer, tail)
+    if overlap >= 2:
+        return True
+    if overlap >= 1 and len(tail) <= 2:
+        return True
+
+    # (4) 종결어미 뒤 매달린 짧은 garbage 토큰
+    if len(tail) <= 2 and answer.endswith(_KO_ENDINGS):
+        return True
+
+    return False
+
+
 def _normalize_problem(raw: dict, item_count: int) -> dict | None:
     """즉석 생성 문제 dict 정규화. 유효하지 않으면 None.
 
     - item_index 는 0..item_count-1 범위여야 한다.
     - choice 인데 options 가 비었거나 정답 미포함이면 버린다.
+    - 빈칸이 깨진 문제(_is_broken_blank)는 버린다(안전망).
     - base_form 은 비어도 허용(없으면 빈 문자열).
     """
     if not isinstance(raw, dict):
@@ -291,6 +355,10 @@ def _normalize_problem(raw: dict, item_count: int) -> dict | None:
     prompt = _clean(raw.get("prompt"))
     answer = _clean(raw.get("answer"))
     if not prompt or not answer:
+        return None
+
+    # 안전망: 빈칸에 정답을 채우면 중복/비문이 되는 깨진 문제를 폐기한다.
+    if _is_broken_blank(prompt, answer):
         return None
 
     options_raw = raw.get("options")
@@ -315,22 +383,41 @@ def _normalize_problem(raw: dict, item_count: int) -> dict | None:
     }
 
 
+# 항목당 생성 문제 수 상한 (프롬프트/응답 폭주 방지)
+# 8 → 6: 후반(per-item 다중 생성)으로 갈수록 빈칸 뒤 잉여 어미/garbage 품질 저하가
+# 심해졌다. 품질 우선으로 6 으로 낮춘다(단일 항목 "여러 문제" 생성은 유지).
+_PER_ITEM_MAX = 6
+# target_count 미지정(0) 시 항목당 기본 생성 수
+_DEFAULT_PER_ITEM = 2
+
+
 def generate_problems_for_items(
     items: list[dict],
     lang_term: str,
     lang_def: str,
+    target_count: int = 0,
 ) -> list[dict]:
     """선택된 문법 항목 리스트로부터 연습문제를 1회 배치 호출로 즉석 생성한다.
 
     items 각 원소: {id?, point, explanation, example?, level?, category?}
     반환 problem: {item_id, kind, prompt, answer, options, base_form, explanation}
 
-    - 각 문법 항목당 1~2문제, 기본은 choice(보기 4개), 난이도는 낮게.
-    - base_form 은 빈칸에 들어갈 표현의 기본형/원형(빈칸채우기 컨텍스트).
+    - target_count: 생성할 "총 문제 수". 항목들에 고르게 분배한다(반복 학습).
+      0 이면 항목당 기본(_DEFAULT_PER_ITEM)개로 생성한다.
+    - 분배: per_item = clamp(ceil(target_count / 항목수), 1, _PER_ITEM_MAX).
+      각 항목당 per_item 개의 "서로 다른 예문"을 만들고(중복 금지), 최종적으로
+      target_count 개로 트림한다. 같은 항목이 몰리지 않게 인터리브한다.
+    - 기본은 choice(보기 4개), 난이도는 낮게. base_form 은 빈칸 표현의 기본형/원형.
     - items 가 비면 빈 리스트 반환(Gemini 호출 안 함).
     """
     if not items:
         return []
+
+    item_count = len(items)
+    if target_count and target_count > 0:
+        per_item = max(1, min(math.ceil(target_count / item_count), _PER_ITEM_MAX))
+    else:
+        per_item = _DEFAULT_PER_ITEM
 
     # Gemini 에는 인덱스 기반으로 전달하고, 응답을 다시 item_id 로 매핑한다.
     lines: list[str] = []
@@ -344,14 +431,46 @@ def generate_problems_for_items(
 
     prompt = (
         f"학습 언어 '{lang_term}' 의 아래 문법 항목들로 빈칸 채우기 연습문제를 만들어라.\n"
-        "각 문법 항목당 1~2문제. 항목 인덱스를 item_index 로 정확히 표기하라.\n"
-        "기본은 choice(객관식)로 만들고, 일부만 typing(주관식)으로 하라. 난이도는 낮게.\n"
+        f"각 문법 항목(아래 [n])마다 정확히 {per_item}개의 문제를 만들어라(반복 학습용).\n"
+        f"같은 항목의 {per_item}개 문제는 반드시 서로 다른 예문/문장으로 만들고, "
+        "문장이나 정답이 중복되지 않게 하라.\n"
+        "기본은 choice(객관식)로 만들고, 일부만 typing(주관식)으로 하라. 난이도는 낮게.\n\n"
+        "■ 빈칸/정답 규칙 (반드시 지켜라):\n"
+        "1) prompt 는 완전하고 자연스러운 문장이어야 하며, '___' 자리에 answer 를 "
+        "그대로 끼워 넣으면 문법적으로 완전하고 올바른 문장이 되어야 한다.\n"
+        "2) 빈칸('___')은 정답(answer) 전체를 대체한다. 정답의 어미/조사/활용 일부를 "
+        "빈칸 밖(앞이나 뒤)에 절대 남기지 마라.\n"
+        "3) 빈칸 앞뒤 텍스트가 정답의 어떤 부분과도 중복되면 안 된다. 빈칸 뒤에 "
+        "불필요한 조사/어미/글자(예: '요', '었어요', '임')를 덧붙이지 마라.\n"
+        "4) 한 문장에 '___' 는 정확히 1개. 정답 단어를 문장의 다른 곳에 또 노출하지 마라.\n\n"
+        "■ choice(객관식) 보기 규칙 — 정답은 '유일'해야 한다 (반드시 지켜라):\n"
+        "5) 오답 보기 3개는 주어진 문장 맥락에서 '명백히 틀려야' 한다 — 비문법적이거나 "
+        "의미상 부적절. 빈칸에 넣었을 때 정답만 자연스럽고 나머지 3개는 틀리거나 어색해야 한다.\n"
+        "6) 정답과 시제/높임/상(相)만 다른데 그 보기도 문맥상 자연스러워서 '둘 다 정답'이 "
+        "되는 보기는 절대 금지(복수 정답 모호함 금지).\n"
+        "7) 문장에 시간 표현/맥락 단서를 넣어 정답이 유일하게 결정되도록 한정하라. "
+        "현재 습관이면 '항상/매일/요즘', 과거면 '어제/방금/아까', 진행이면 '지금' 등을 넣어 "
+        "다른 시제 보기가 답이 될 여지를 없애라.\n"
+        "8) 그래도 시제로 변별이 애매하면, 시제가 아닌 다른 축(어휘 오류/조사 오류/높임 오류 "
+        "/비문)으로 오답을 만들어 정답이 하나가 되게 하라.\n\n"
+        "■ 예시(학습 언어가 한국어인 경우로 일반화):\n"
+        "올바름: prompt '비가 와서 우산을 ___.' / answer '썼어요' "
+        "→ 채우면 '비가 와서 우산을 썼어요.' (완전).\n"
+        "금지: prompt '비가 와서 우산을 ___ 어요.' / answer '썼어요' "
+        "(빈칸 뒤 '어요' 가 정답 어미와 중복 → 채우면 '...썼어요 어요.' 비문).\n"
+        "금지: prompt '... 잘 ___ 요.' / answer '섞여요' (빈칸 뒤 '요' 잉여).\n"
+        "금지: prompt '... 남산타워가 잘 ___ 임.' / answer '보여요' (빈칸 뒤 '임' 의미 없는 garbage).\n"
+        "모호 금지: prompt '퇴근 시간에는 항상 길이 많이 ___.' / answer '밀려요' / "
+        "오답에 '밀렸어요'(과거) 포함 — 문맥상 '밀렸어요'도 말이 되어 둘 다 정답 → 금지. "
+        "이런 경우 '항상' 같은 현재 습관 단서를 분명히 하고, 오답은 '밀어요'(어휘/의미 오류) "
+        "처럼 문맥에서 명백히 틀린 것으로 만들어라.\n\n"
         "각 문제 필드:\n"
         "- item_index: 위 [n] 의 n (정수)\n"
         "- kind: 'choice' 또는 'typing'\n"
-        f"- prompt: 빈칸(___)을 포함한 '{lang_term}' 문장\n"
-        "- answer: 빈칸에 들어갈 정답(활용형)\n"
-        "- options: choice 면 정답 포함 4개(그럴듯한 활용형 오답). typing 이면 빈 배열\n"
+        f"- prompt: 빈칸(___)을 포함한 '{lang_term}' 문장 (위 규칙 준수)\n"
+        "- answer: 빈칸에 들어갈 정답(한 덩어리, 활용형)\n"
+        "- options: choice 면 정답 포함 4개. 오답 3개는 문맥에서 명백히 틀린 것(위 5~8 규칙). "
+        "정답과 시제/높임만 달라 문맥상 둘 다 맞는 보기는 금지. typing 이면 빈 배열\n"
         "- base_form: 빈칸에 들어갈 표현의 기본형/원형(예: 동사 '먹다'). 학습자가 풀 수 있도록 컨텍스트 제공\n"
         f"- explanation: 짧은 해설('{lang_def}' 언어로, 없으면 빈 문자열)\n\n"
         f"문법 항목:\n{item_block}"
@@ -359,13 +478,19 @@ def generate_problems_for_items(
 
     parsed = _generate([prompt], _PROBLEMS_RESPONSE_SCHEMA)
 
-    result: list[dict] = []
+    # 항목별로 모은 뒤(중복 prompt 제거), 인터리브로 펼친다.
+    by_index: dict[int, list[dict]] = {}
     for raw in parsed:
-        norm = _normalize_problem(raw, len(items))
+        norm = _normalize_problem(raw, item_count)
         if norm is None:
             continue
-        item = items[norm["item_index"]]
-        result.append(
+        idx = norm["item_index"]
+        bucket = by_index.setdefault(idx, [])
+        # 같은 항목 내 동일 prompt 중복은 버린다(서로 다른 예문 보장)
+        if any(p["prompt"] == norm["prompt"] for p in bucket):
+            continue
+        item = items[idx]
+        bucket.append(
             {
                 "item_id": item.get("id"),
                 "kind": norm["kind"],
@@ -376,4 +501,27 @@ def generate_problems_for_items(
                 "explanation": norm["explanation"],
             }
         )
+
+    # 항목별 버킷 내부를 섞어 다양성 확보
+    for bucket in by_index.values():
+        random.shuffle(bucket)
+
+    # 인터리브: 라운드 로빈으로 항목을 번갈아 뽑아 한 항목이 몰리지 않게 한다.
+    ordered_indices = sorted(by_index.keys())
+    result: list[dict] = []
+    round_idx = 0
+    while True:
+        added = False
+        for idx in ordered_indices:
+            bucket = by_index[idx]
+            if round_idx < len(bucket):
+                result.append(bucket[round_idx])
+                added = True
+        if not added:
+            break
+        round_idx += 1
+
+    # 최종 트림: target_count 가 있으면 그 수만큼만 반환
+    if target_count and target_count > 0:
+        result = result[:target_count]
     return result
