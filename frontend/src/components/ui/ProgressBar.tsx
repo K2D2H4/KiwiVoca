@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 interface ProgressBarProps {
   value: number; // 0~100
   className?: string;
-  tone?: "kiwi" | "pop";
+  tone?: "kiwi" | "bark";
   size?: "sm" | "md";
   label?: string; // aria
 }
@@ -17,7 +17,7 @@ export default function ProgressBar({
   label,
 }: ProgressBarProps) {
   const clamped = Math.max(0, Math.min(100, value));
-  const fill = tone === "kiwi" ? "bg-kiwi" : "bg-pop";
+  const fill = tone === "kiwi" ? "bg-kiwi" : "bg-bark";
   const h = size === "sm" ? "h-1.5" : "h-2.5";
   return (
     <div

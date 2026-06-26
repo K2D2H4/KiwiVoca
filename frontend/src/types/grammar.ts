@@ -119,12 +119,15 @@ export interface GrammarFiltersResponse {
 }
 
 // POST /api/grammar/practice 요청 — 즉석 생성(Gemini), 수초 소요
+// limit: 생성할 "문제 수"(반복 학습용). item_ids: 특정 문법 항목만 연습(선택).
+// deck_ids / item_ids 중 최소 하나 필수.
 export interface PracticePayload {
-  deck_ids: (string | number)[];
+  deck_ids?: (string | number)[];
+  item_ids?: number[];
   levels?: string[];
   categories?: string[];
   scope?: "all" | "unlearned";
-  limit?: number; // 0 = 전체
+  limit?: number; // 생성할 문제 수
   order?: "weak" | "random";
 }
 

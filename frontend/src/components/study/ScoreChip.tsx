@@ -9,7 +9,7 @@ export default function ScoreChip({ score }: { score: number }) {
       initial={{ scale: 0.7 }}
       animate={{ scale: [1.25, 1] }}
       transition={spring.gentle}
-      className="inline-flex min-w-[2.25rem] items-center justify-center rounded-full bg-kiwi px-3 py-1 text-sm font-black tabular-nums text-white shadow-pop"
+      className="inline-flex min-w-[2.25rem] items-center justify-center rounded-full bg-kiwi px-3 py-1 text-sm font-black tabular-nums text-white shadow-kiwi-glow"
     >
       {score}
     </motion.span>

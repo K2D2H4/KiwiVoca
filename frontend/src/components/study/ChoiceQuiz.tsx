@@ -178,7 +178,7 @@ function OptionButton({
   onPick: () => void;
 }) {
   let style = "bg-surface text-seed shadow-soft";
-  if (revealed && isAnswer) style = "bg-kiwi text-white shadow-pop";
+  if (revealed && isAnswer) style = "bg-kiwi text-white shadow-kiwi-glow";
   else if (revealed && isPicked && !isAnswer) style = "bg-pop text-white shadow-pop";
   else if (revealed) style = "bg-surface text-seed/30 shadow-soft";
 

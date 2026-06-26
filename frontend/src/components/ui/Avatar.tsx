@@ -7,10 +7,10 @@ interface AvatarProps {
 
 const TONES = [
   "bg-kiwi text-white",
-  "bg-pop text-white",
+  "bg-info text-white",
   "bg-bark text-white",
   "bg-kiwi-700 text-white",
-  "bg-info text-white",
+  "bg-warning text-white",
 ];
 
 export default function Avatar({ name, size = 40, className = "" }: AvatarProps) {

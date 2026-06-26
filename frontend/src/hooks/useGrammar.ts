@@ -150,10 +150,11 @@ export function useGrammarFilters(deckIds: (string | number)[]) {
 
 export interface PracticeParams {
   deckIds: (string | number)[];
+  itemIds?: number[]; // 특정 문법 항목만 연습(선택)
   levels?: string[];
   categories?: string[];
   scope?: "all" | "unlearned";
-  limit?: number; // 0 = 전체
+  limit?: number; // 생성할 문제 수
   order?: "weak" | "random";
 }
 
@@ -169,6 +170,7 @@ export function usePractice() {
         limit: params.limit ?? 0,
         order: params.order ?? "weak",
         // 빈 값이면 필드 생략(전체)
+        ...(params.itemIds?.length ? { item_ids: params.itemIds } : {}),
         ...(params.levels?.length ? { levels: params.levels } : {}),
         ...(params.categories?.length ? { categories: params.categories } : {}),
       };

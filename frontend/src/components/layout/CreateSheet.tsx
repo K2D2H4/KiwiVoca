@@ -194,14 +194,14 @@ function HowRow({
       className={[
         "flex w-full items-center gap-3.5 rounded-2xl bg-surface p-3.5 text-left shadow-soft outline-none ring-1 transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-kiwi-400",
         accent
-          ? "ring-pop/40 hover:ring-pop/70"
+          ? "ring-bark/40 hover:ring-bark/70"
           : "ring-border hover:ring-kiwi-300",
       ].join(" ")}
     >
       <span
         className={[
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-          accent ? "bg-pop-soft text-pop-dark" : "bg-kiwi-50 text-kiwi-700",
+          accent ? "bg-bark/12 text-bark" : "bg-kiwi-50 text-kiwi-700",
         ].join(" ")}
       >
         <Icon size={20} strokeWidth={2.2} />

@@ -21,7 +21,7 @@ const MODES: {
   tile: string;
 }[] = [
   { mode: "flashcards", min: 1, Icon: Layers, tile: "bg-kiwi-100 text-kiwi-700" },
-  { mode: "choice", min: 4, Icon: ListChecks, tile: "bg-pop-soft text-pop-dark" },
+  { mode: "choice", min: 4, Icon: ListChecks, tile: "bg-bark/12 text-bark" },
   { mode: "typing", min: 1, Icon: Keyboard, tile: "bg-info-soft text-info" },
   { mode: "match", min: 4, Icon: Grid2x2, tile: "bg-warning-soft text-warning" },
 ];

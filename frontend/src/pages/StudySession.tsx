@@ -172,7 +172,7 @@ function CenteredNotice({
       <button
         type="button"
         onClick={onBack}
-        className="min-h-[48px] rounded-2xl bg-kiwi px-6 text-sm font-extrabold text-white shadow-pop transition active:scale-95"
+        className="min-h-[48px] rounded-2xl bg-kiwi px-6 text-sm font-extrabold text-white shadow-kiwi-glow transition active:scale-95"
       >
         {t("common.back")}
       </button>

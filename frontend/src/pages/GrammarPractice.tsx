@@ -38,6 +38,17 @@ export default function GrammarPractice() {
     return raw ? raw.split(",").filter(Boolean) : [];
   }, [params]);
 
+  // 단일 항목 연습 — items(콤마) → item ids. 있으면 itemMode(필터 숨김).
+  const itemIds = useMemo<number[]>(() => {
+    const raw = params.get("items");
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  }, [params]);
+  const itemMode = itemIds.length > 0;
+
   // 필터/옵션 쿼리 — 하나라도 있으면 "구성됨"으로 보고 시트 생략
   const levels = useMemo(() => splitParam(params.get("levels")), [params]);
   const categories = useMemo(
@@ -67,16 +78,19 @@ export default function GrammarPractice() {
 
   // 현재 쿼리(덱/필터/옵션) 시그니처 — 같은 구성에서 중복 생성 방지용.
   const sig = useMemo(() => {
-    if (!configured || deckIds.length === 0) return null;
+    // 덱 또는 항목 중 하나는 있어야 구성됨
+    if (!configured || (deckIds.length === 0 && itemIds.length === 0))
+      return null;
     return JSON.stringify({
       deckIds: [...deckIds].sort(),
+      itemIds: [...itemIds].sort((a, b) => a - b),
       levels: [...levels].sort(),
       categories: [...categories].sort(),
       scope,
       limit,
       order,
     });
-  }, [configured, deckIds, levels, categories, scope, limit, order]);
+  }, [configured, deckIds, itemIds, levels, categories, scope, limit, order]);
 
   // 구성되면 즉석 생성 호출. 시그니처가 바뀌었을 때만 새로 요청.
   // ⚠️ 딥링크(start=1) 직진입 시 행 방지: ref만으로 가드하면
@@ -90,6 +104,7 @@ export default function GrammarPractice() {
     requestedSig.current = sig;
     runPractice({
       deckIds,
+      itemIds,
       levels,
       categories,
       scope,
@@ -100,6 +115,7 @@ export default function GrammarPractice() {
     sig,
     practiceStatus,
     deckIds,
+    itemIds,
     levels,
     categories,
     scope,
@@ -130,8 +146,8 @@ export default function GrammarPractice() {
     [params, setParams, resetPractice]
   );
 
-  // 덱 미지정 — 잘못된 진입
-  if (deckIds.length === 0) {
+  // 덱·항목 모두 미지정 — 잘못된 진입
+  if (deckIds.length === 0 && itemIds.length === 0) {
     return <CenteredNotice text={t("grammar.practice.noDeck")} onBack={close} />;
   }
 
@@ -147,6 +163,7 @@ export default function GrammarPractice() {
           open={sheetOpen}
           levels={filtersQuery.data?.levels ?? []}
           loading={filtersQuery.isLoading}
+          itemMode={itemMode}
           onClose={close}
           onStart={startWith}
         />
@@ -366,41 +383,35 @@ function PracticeRunner({
 // 빈칸 ___ 슬롯 렌더.
 // - 미공개: 코랄 밑줄의 "필 슬롯"(baseline 정렬, 적정 너비, 살짝 강조).
 // - 공개 후(filled 전달): 슬롯 자리에 정답을 채워 문장을 완성.
-//   정답이면 키위그린, 오답이면 정답을 코랄로 표시(채점 로직과 무관, 표시만).
+//   filled 는 항상 "정답"(학습 대상)이므로 맞고 틀림과 무관하게 키위그린으로 표시한다.
 function PromptText({
   prompt,
   filled,
-  correct,
 }: {
   prompt: string;
   filled?: string | null; // 공개 후 빈칸에 채울 정답(없으면 빈 슬롯)
-  correct?: boolean; // filled 색상 분기 — 정답 그린 / 오답 코랄
 }) {
   const parts = prompt.split(/(_{2,})/g);
   return (
     <span className="break-words text-[clamp(1.35rem,5.5vw,1.85rem)] font-black leading-snug text-seed">
       {parts.map((p, i) => {
         if (!/^_{2,}$/.test(p)) return <span key={i}>{p}</span>;
-        // 공개 후 — 정답으로 채운 슬롯
+        // 공개 후 — 정답으로 채운 슬롯 (정답이라 항상 키위그린)
         if (filled != null) {
           return (
             <span
               key={i}
-              className={`mx-1 inline-flex items-baseline rounded-lg px-2 pb-0.5 align-baseline font-black ${
-                correct
-                  ? "bg-kiwi/12 text-kiwi-dark"
-                  : "bg-pop/12 text-pop-dark"
-              }`}
+              className="mx-1 inline-flex items-baseline rounded-lg bg-kiwi/12 px-2 pb-0.5 align-baseline font-black text-kiwi-dark"
             >
               {filled}
             </span>
           );
         }
-        // 미공개 — 빈 슬롯(코랄 밑줄 칩)
+        // 미공개 — 빈 슬롯(키위 그린 밑줄 칩)
         return (
           <span
             key={i}
-            className="mx-1 inline-block h-[1.15em] min-w-[3.5ch] translate-y-[0.18em] rounded-md border-b-[3px] border-pop/70 bg-pop/5 align-baseline"
+            className="mx-1 inline-block h-[1.15em] min-w-[3.5ch] translate-y-[0.18em] rounded-md border-b-[3px] border-kiwi/70 bg-kiwi/8 align-baseline"
             aria-hidden="true"
           />
         );
@@ -414,11 +425,11 @@ function BaseFormHint({ baseForm }: { baseForm?: string | null }) {
   const { t } = useTranslation();
   if (!baseForm) return null;
   return (
-    <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-bark/10 px-3 py-1.5 text-caption font-bold text-bark">
-      <span className="shrink-0 text-bark/60">
+    <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-kiwi/15 px-3 py-1.5 text-caption font-bold text-kiwi-dark ring-1 ring-inset ring-kiwi/30">
+      <span className="shrink-0 text-kiwi-dark/70">
         {t("grammar.practice.baseFormLabel")}
       </span>
-      <span className="truncate font-black text-bark">{baseForm}</span>
+      <span className="truncate font-black text-kiwi-dark">{baseForm}</span>
     </span>
   );
 }
@@ -443,8 +454,6 @@ function ChoiceProblem({
   const [picked, setPicked] = useState<string | null>(null);
   const revealed = picked !== null;
   const correct = problem.answer;
-  // 공개 후 빈칸을 채울 값/색상 — 정답이면 그린, 오답이어도 정답을 표시해 문장 완성
-  const pickedCorrect = picked != null && isAnswerCorrect(picked, correct);
 
   const choose = (opt: string) => {
     if (revealed) return;
@@ -461,7 +470,6 @@ function ChoiceProblem({
         <PromptText
           prompt={problem.prompt}
           filled={revealed ? correct : null}
-          correct={pickedCorrect}
         />
         {/* 정답 공개 후엔 빈칸이 채워져 힌트 불필요 */}
         {!revealed && <BaseFormHint baseForm={problem.base_form} />}
@@ -498,7 +506,7 @@ function ChoiceProblem({
                 state === "idle" &&
                   "border-transparent bg-surface text-seed shadow-soft",
                 state === "correct" &&
-                  "border-kiwi bg-kiwi/12 text-kiwi-dark shadow-pop",
+                  "border-kiwi bg-kiwi/12 text-kiwi-dark shadow-kiwi-glow",
                 state === "wrong" && "border-pop bg-pop/12 text-pop-dark",
                 state === "dim" && "border-transparent bg-ink-100/60 text-seed/35",
               ]
@@ -534,7 +542,7 @@ function ChoiceProblem({
               type="button"
               onClick={onNext}
               whileTap={{ scale: 0.96 }}
-              className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-pop hover:bg-kiwi-dark"
+              className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow hover:bg-kiwi-dark"
             >
               {isLast ? t("study.finish") : t("study.next")}
             </motion.button>
@@ -579,7 +587,6 @@ function TypingProblem({
         <PromptText
           prompt={problem.prompt}
           filled={revealed ? problem.answer : null}
-          correct={phase === "correct"}
         />
         {/* 정답 공개 후엔 빈칸이 채워져 힌트 불필요 */}
         {!revealed && <BaseFormHint baseForm={problem.base_form} />}
@@ -602,7 +609,7 @@ function TypingProblem({
             placeholder={t("grammar.practice.typeHere")}
             className={`min-h-[56px] w-full rounded-2xl border-2 bg-surface px-4 text-lg font-extrabold text-seed shadow-soft transition-[border-color,box-shadow] duration-200 placeholder:text-seed/30 focus:outline-none ${
               phase === "correct"
-                ? "border-kiwi shadow-pop"
+                ? "border-kiwi shadow-kiwi-glow"
                 : phase === "wrong"
                   ? "border-pop shadow-pop"
                   : "border-transparent focus:border-kiwi focus:shadow-[0_0_0_4px_rgba(107,191,89,0.15)]"
@@ -654,7 +661,7 @@ function TypingProblem({
             type="button"
             onClick={onNext}
             whileTap={{ scale: 0.96 }}
-            className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-pop hover:bg-kiwi-dark"
+            className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow hover:bg-kiwi-dark"
           >
             {isLast ? t("study.finish") : t("study.next")}
           </motion.button>
@@ -663,7 +670,7 @@ function TypingProblem({
             type="submit"
             disabled={!value.trim()}
             whileTap={{ scale: 0.96 }}
-            className="min-h-[56px] w-full rounded-2xl bg-pop text-base font-extrabold text-white shadow-pop transition-opacity disabled:opacity-40"
+            className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow transition-opacity hover:bg-kiwi-dark disabled:opacity-40"
           >
             {t("study.check")}
           </motion.button>
@@ -829,7 +836,7 @@ function CenteredNotice({
       <button
         type="button"
         onClick={onBack}
-        className="min-h-[48px] rounded-2xl bg-kiwi px-6 text-sm font-extrabold text-white shadow-pop transition active:scale-95"
+        className="min-h-[48px] rounded-2xl bg-kiwi px-6 text-sm font-extrabold text-white shadow-kiwi-glow transition active:scale-95"
       >
         {backLabel ?? t("common.back")}
       </button>

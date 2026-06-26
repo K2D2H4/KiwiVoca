@@ -368,8 +368,15 @@
       "reviewList": "복습할 문법",
       "generating": "문제 만드는 중…",
       "generatingHint": "잠깐만요, 맞춤 문제를 빚고 있어요.",
-      "baseFormLabel": "기본형"
-    }
+      "baseFormLabel": "기본형",
+      "optionsTitleItem": "이 문법 연습",
+      "optionsHintItem": "이 문법 하나로 연습 문제를 만들어요.",
+      "problemCountLabel": "문제 수",
+      "problemCountPreview": "연습 문제 {{count}}개 만들기",
+      "summaryAvailableLoading": "문법 항목을 세는 중…",
+      "summaryAvailableItems": "문법 {{count}}개 선택됨"
+    },
+    "practiceItem": "연습"
   },
   "tts": {
     "play": "발음 듣기"
