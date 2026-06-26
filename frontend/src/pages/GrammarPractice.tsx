@@ -363,24 +363,48 @@ function PracticeRunner({
   );
 }
 
-// 빈칸 ___ 을 pop 밑줄 칩으로 렌더
-function PromptText({ prompt }: { prompt: string }) {
+// 빈칸 ___ 슬롯 렌더.
+// - 미공개: 코랄 밑줄의 "필 슬롯"(baseline 정렬, 적정 너비, 살짝 강조).
+// - 공개 후(filled 전달): 슬롯 자리에 정답을 채워 문장을 완성.
+//   정답이면 키위그린, 오답이면 정답을 코랄로 표시(채점 로직과 무관, 표시만).
+function PromptText({
+  prompt,
+  filled,
+  correct,
+}: {
+  prompt: string;
+  filled?: string | null; // 공개 후 빈칸에 채울 정답(없으면 빈 슬롯)
+  correct?: boolean; // filled 색상 분기 — 정답 그린 / 오답 코랄
+}) {
   const parts = prompt.split(/(_{2,})/g);
   return (
     <span className="break-words text-[clamp(1.35rem,5.5vw,1.85rem)] font-black leading-snug text-seed">
-      {parts.map((p, i) =>
-        /^_{2,}$/.test(p) ? (
+      {parts.map((p, i) => {
+        if (!/^_{2,}$/.test(p)) return <span key={i}>{p}</span>;
+        // 공개 후 — 정답으로 채운 슬롯
+        if (filled != null) {
+          return (
+            <span
+              key={i}
+              className={`mx-1 inline-flex items-baseline rounded-lg px-2 pb-0.5 align-baseline font-black ${
+                correct
+                  ? "bg-kiwi/12 text-kiwi-dark"
+                  : "bg-pop/12 text-pop-dark"
+              }`}
+            >
+              {filled}
+            </span>
+          );
+        }
+        // 미공개 — 빈 슬롯(코랄 밑줄 칩)
+        return (
           <span
             key={i}
-            className="mx-1 inline-block min-w-[3ch] translate-y-1 rounded-md border-b-[3px] border-pop align-baseline"
+            className="mx-1 inline-block h-[1.15em] min-w-[3.5ch] translate-y-[0.18em] rounded-md border-b-[3px] border-pop/70 bg-pop/5 align-baseline"
             aria-hidden="true"
-          >
-            &nbsp;
-          </span>
-        ) : (
-          <span key={i}>{p}</span>
-        )
-      )}
+          />
+        );
+      })}
     </span>
   );
 }
@@ -419,6 +443,8 @@ function ChoiceProblem({
   const [picked, setPicked] = useState<string | null>(null);
   const revealed = picked !== null;
   const correct = problem.answer;
+  // 공개 후 빈칸을 채울 값/색상 — 정답이면 그린, 오답이어도 정답을 표시해 문장 완성
+  const pickedCorrect = picked != null && isAnswerCorrect(picked, correct);
 
   const choose = (opt: string) => {
     if (revealed) return;
@@ -432,8 +458,13 @@ function ChoiceProblem({
         <span className="mb-3 text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
           {t("grammar.practice.fillBlank")}
         </span>
-        <PromptText prompt={problem.prompt} />
-        <BaseFormHint baseForm={problem.base_form} />
+        <PromptText
+          prompt={problem.prompt}
+          filled={revealed ? correct : null}
+          correct={pickedCorrect}
+        />
+        {/* 정답 공개 후엔 빈칸이 채워져 힌트 불필요 */}
+        {!revealed && <BaseFormHint baseForm={problem.base_form} />}
       </div>
 
       <div className="mt-4 grid gap-2.5">
@@ -545,8 +576,13 @@ function TypingProblem({
         <span className="mb-3 text-[10px] font-black uppercase tracking-widest text-kiwi-dark/55">
           {t("grammar.practice.fillBlankType")}
         </span>
-        <PromptText prompt={problem.prompt} />
-        <BaseFormHint baseForm={problem.base_form} />
+        <PromptText
+          prompt={problem.prompt}
+          filled={revealed ? problem.answer : null}
+          correct={phase === "correct"}
+        />
+        {/* 정답 공개 후엔 빈칸이 채워져 힌트 불필요 */}
+        {!revealed && <BaseFormHint baseForm={problem.base_form} />}
       </div>
 
       <div className="mt-4">
