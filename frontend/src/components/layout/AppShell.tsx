@@ -64,7 +64,7 @@ export default function AppShell() {
           className="mb-8 flex items-center px-2 text-left transition active:scale-95"
           aria-label={t("app.name")}
         >
-          <LogoWordmark height={50} />
+          <LogoWordmark height={66} />
         </button>
 
         <nav className="flex flex-1 flex-col gap-1">

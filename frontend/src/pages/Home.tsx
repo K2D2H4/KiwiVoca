@@ -97,7 +97,7 @@ export default function Home() {
       {/* 상단 그린 헤더 */}
       <header className="seed-dots bg-kiwi px-5 pb-7 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between pt-2 md:hidden">
-          <LogoWordmark height={28} onColor />
+          <LogoWordmark height={40} onColor />
           <LanguageSwitcher />
         </div>
 
