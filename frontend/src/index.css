@@ -93,6 +93,17 @@
   #root {
     height: 100%;
   }
+  /* 데스크탑(md+): window(html) 스크롤 자체를 차단 — html/body/#root를 뷰포트에 잠가
+     셸이 #root를 꽉 채우는 height 컨텍스트가 되게 하고, 스크롤은 본문 래퍼에서만 일어나게 한다.
+     (md 미만 모바일은 기존 페이지 스크롤·하단 탭바·FAB·safe-area 그대로 — 잠그지 않음) */
+  @media (min-width: 768px) {
+    html,
+    body,
+    #root {
+      height: 100dvh;
+      overflow: hidden;
+    }
+  }
   body {
     @apply bg-cream text-seed font-sans antialiased;
     -webkit-tap-highlight-color: transparent;
@@ -194,15 +205,19 @@
   isolation: isolate;
 }
 
-/* 회전 그라데이션 보더 — inset:0로 버튼 박스에 정확히 겹쳐 외곽 radius·가장자리를 일치시킨다.
-   링 두께는 padding(2px)이 결정하고, 안쪽을 마스크로 도려내 버튼 채움에 틈 없이 붙는다. */
+/* 회전 그라데이션 보더 — 버튼 가장자리 바로 바깥(inset:-2px)에 링을 두르고 z-index:1로
+   불투명 버튼 배경 "위"에 올려 또렷이 보이게 한다(이전엔 z:-1라 배경 뒤로 가려졌음).
+   바깥 radius는 버튼+2px이라 정확히 맞물리도록 calc로 보정, 안쪽을 마스크로 도려내
+   링(2.5px)만 남기고 버튼 채움은 그대로 비춰 틈/이중보더 없이 딱 붙는다.
+   pointer-events:none으로 클릭은 버튼이 그대로 받게 한다. */
 .cta-orchard-ring::before {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  padding: 2px;
+  inset: -2px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: calc(1rem + 2px); /* 버튼 rounded-2xl(16px) + 바깥 2px 보정 */
+  padding: 2.5px;
   background: conic-gradient(
     from var(--orchard-angle),
     rgb(95 166 60) 0%,         /* 키위 그린(딥) */
