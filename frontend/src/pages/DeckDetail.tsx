@@ -46,7 +46,7 @@ import type { GrammarItem } from "../types/grammar";
 // 키위 그린에서 코랄로 부드럽게 번지는 따뜻한 톤 + 낮은 그림자(기존 shadow-pop 0.28 → 0.18).
 // 삭제(danger) 버튼의 강렬한 코랄은 경고색으로 그대로 둔다.
 const START_CTA =
-  "bg-gradient-to-br from-kiwi via-kiwi-400 to-pop hover:from-kiwi-600 hover:via-kiwi to-pop-dark shadow-[0_5px_18px_rgba(255,138,122,0.18)]";
+  "cta-orchard-ring bg-gradient-to-br from-kiwi via-kiwi-400 to-pop hover:from-kiwi-600 hover:via-kiwi to-pop-dark shadow-[0_5px_18px_rgba(255,138,122,0.18)]";
 
 export default function DeckDetail() {
   const { t } = useTranslation();

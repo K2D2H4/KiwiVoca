@@ -255,6 +255,7 @@ export default function StudyHub() {
                   variant={vocabCount > 0 ? "secondary" : "primary"}
                   size="lg"
                   fullWidth
+                  className={vocabCount > 0 ? undefined : "cta-orchard-ring"}
                   leftIcon={<GraduationCap size={20} strokeWidth={2.4} />}
                   onClick={startGrammar}
                 >
@@ -266,6 +267,7 @@ export default function StudyHub() {
                   variant="primary"
                   size="lg"
                   fullWidth
+                  className="cta-orchard-ring"
                   leftIcon={<Play size={20} fill="currentColor" />}
                   onClick={() => setModeOpen(true)}
                 >
