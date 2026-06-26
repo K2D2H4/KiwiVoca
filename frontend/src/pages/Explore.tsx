@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Layers, Search, Compass, X } from "lucide-react";
-import KiwiMark from "../components/KiwiMark";
+import LogoWordmark from "../components/LogoWordmark";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { Button, Card, Badge, Avatar, Skeleton, EmptyState } from "../components/ui";
 import { langLabel } from "../lib/languages";
@@ -43,12 +43,7 @@ export default function Explore() {
       {/* ===== 그린 헤더 ===== */}
       <header className="seed-dots bg-kiwi px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between pt-2 md:hidden">
-          <div className="flex items-center gap-2">
-            <KiwiMark size={30} />
-            <span className="font-display text-lg font-extrabold text-white">
-              {t("app.name")}
-            </span>
-          </div>
+          <LogoWordmark height={28} onColor />
           <LanguageSwitcher />
         </div>
 
