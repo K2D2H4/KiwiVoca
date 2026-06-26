@@ -111,7 +111,7 @@ export default function AppShell() {
             <ThemeToggle variant="compact" />
           </div>
           <div className="mb-3 px-1">
-            <LanguageSwitcher />
+            <LanguageSwitcher variant="surface" />
           </div>
           <button
             type="button"
