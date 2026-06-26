@@ -246,7 +246,7 @@ export default function ImportPhoto() {
   // ── 추출/생성 로딩 ─────────────────────────────────────────
   if (extract.isPending || generate.isPending) {
     return (
-      <div className="min-h-[100dvh]">
+      <div className="min-h-[100dvh] md:min-h-0">
         <PageHeader title={method === "ai" ? t("import.aiTitle") : t("import.title")} />
         <div className="flex flex-col items-center px-6 pt-16 text-center">
           <KiwiBuddy mood="sleepy" size={104} float />
@@ -272,7 +272,7 @@ export default function ImportPhoto() {
   }
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader
         title={method === "ai" ? t("import.aiTitle") : t("import.title")}
         onBack={() => (step === "review" ? setStep("upload") : navigate(-1))}

@@ -212,7 +212,7 @@ export default function DeckDetail() {
 
   if (deckError) {
     return (
-      <div className="min-h-[100dvh]">
+      <div className="min-h-[100dvh] md:min-h-0">
         <PageHeader title={t("deck.detail")} onBack={() => navigate("/")} />
         <div className="px-5 pt-10 text-center">
           <p className="text-body-sm font-bold text-seed/60">
@@ -233,7 +233,7 @@ export default function DeckDetail() {
     : cards?.filter((c) => c.is_learned).length ?? 0;
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader
         title={deck?.title || t("deck.detail")}
         onBack={() => navigate("/")}

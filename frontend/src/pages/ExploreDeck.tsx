@@ -41,7 +41,7 @@ export default function ExploreDeck() {
 
   if (isError) {
     return (
-      <div className="min-h-[100dvh]">
+      <div className="min-h-[100dvh] md:min-h-0">
         <PageHeader title={t("explore.detail")} onBack={() => navigate("/explore")} />
         <div className="px-5 pt-16">
           <EmptyState
@@ -65,7 +65,7 @@ export default function ExploreDeck() {
   }
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader
         title={deck?.title || t("explore.detail")}
         onBack={() => navigate("/explore")}
