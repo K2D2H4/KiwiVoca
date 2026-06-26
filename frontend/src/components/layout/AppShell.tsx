@@ -55,9 +55,9 @@ export default function AppShell() {
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
-    <div className="min-h-[100dvh] bg-cream no-x md:flex">
+    <div className="min-h-[100dvh] bg-cream no-x md:flex md:h-[100dvh] md:overflow-hidden">
       {/* ===== 데스크탑 좌측 사이드바 ===== */}
-      <aside className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 md:flex">
+      <aside className="hidden h-[100dvh] w-64 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 md:flex">
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -127,7 +127,7 @@ export default function AppShell() {
       </aside>
 
       {/* ===== 본문 ===== */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 md:h-[100dvh] md:overflow-y-auto">
         <main className="mx-auto w-full max-w-screen-md pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:max-w-screen-lg md:pb-12">
           <Outlet />
         </main>

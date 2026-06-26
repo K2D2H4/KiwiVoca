@@ -47,7 +47,7 @@ export default function DeckNew() {
   };
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader title={t("deck.createTitle")} onBack={() => navigate(-1)} />
 
       <form

@@ -39,7 +39,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="bg-orchard min-h-[100dvh]">
+    <div className="bg-orchard min-h-[100dvh] md:min-h-0">
       {/* 그린 헤더 + 아바타 */}
       <header className="seed-dots bg-kiwi px-5 pb-12 pt-[max(1.5rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex w-full max-w-screen-md flex-col items-center text-center">

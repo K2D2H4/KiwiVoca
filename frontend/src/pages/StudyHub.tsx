@@ -101,7 +101,7 @@ export default function StudyHub() {
   const grammarCount = grammarSel.size;
 
   return (
-    <div className="bg-orchard min-h-[100dvh]">
+    <div className="bg-orchard min-h-[100dvh] md:min-h-0">
       {/* 그린 헤더 */}
       <header className="seed-dots bg-kiwi px-5 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
         <div className="mx-auto w-full max-w-screen-md">
@@ -255,6 +255,7 @@ export default function StudyHub() {
                   variant={vocabCount > 0 ? "secondary" : "primary"}
                   size="lg"
                   fullWidth
+                  className={vocabCount > 0 ? undefined : "cta-orchard-ring"}
                   leftIcon={<GraduationCap size={20} strokeWidth={2.4} />}
                   onClick={startGrammar}
                 >
@@ -266,6 +267,7 @@ export default function StudyHub() {
                   variant="primary"
                   size="lg"
                   fullWidth
+                  className="cta-orchard-ring"
                   leftIcon={<Play size={20} fill="currentColor" />}
                   onClick={() => setModeOpen(true)}
                 >

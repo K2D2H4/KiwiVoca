@@ -93,6 +93,17 @@
   #root {
     height: 100%;
   }
+  /* 데스크탑(md+): window(html) 스크롤 자체를 차단 — html/body/#root를 뷰포트에 잠가
+     셸이 #root를 꽉 채우는 height 컨텍스트가 되게 하고, 스크롤은 본문 래퍼에서만 일어나게 한다.
+     (md 미만 모바일은 기존 페이지 스크롤·하단 탭바·FAB·safe-area 그대로 — 잠그지 않음) */
+  @media (min-width: 768px) {
+    html,
+    body,
+    #root {
+      height: 100dvh;
+      overflow: hidden;
+    }
+  }
   body {
     @apply bg-cream text-seed font-sans antialiased;
     -webkit-tap-highlight-color: transparent;
@@ -164,5 +175,108 @@
   /* 가로 스크롤 차단 헬퍼 */
   .no-x {
     overflow-x: hidden;
+  }
+}
+
+/*
+ * CTA 흐르는 그라데이션 외곽선 — "Orchard Pulse" (그린 셰머)
+ * 버튼 둘레를 도는 conic-gradient 링(키위 그린→라임 하이라이트→크림/화이트)이
+ * @property --orchard-angle 각도 애니메이션으로 천천히 회전한다(GPU 친화: 각도 커스텀 프로퍼티만 변경).
+ * ::before = 회전 그라데이션 보더, ::after = 은은한 그린 글로우.
+ * 정렬: ::before를 inset:0로 버튼 박스에 정확히 겹쳐(border-radius:inherit) 외곽 radius를 버튼과 일치시키고,
+ *       마스크로 안쪽을 도려내 링이 버튼 가장자리에 틈 없이 딱 붙게 한다(이중 보더처럼 뜨지 않게).
+ * 버튼 내부 채움(기존 그린 그라데이션)은 그대로 유지 — 클래스를 버튼에 직접 부여한다.
+ * 색: 키위그린 + 라임 + 크림만(코랄 없음). 하드코딩 hex 없이 브랜드 고정 키위 톤 사용.
+ */
+@property --orchard-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes orchard-spin {
+  to {
+    --orchard-angle: 360deg;
+  }
+}
+
+.cta-orchard-ring {
+  position: relative;
+  isolation: isolate;
+}
+
+/* 회전 그라데이션 보더 — 버튼 가장자리 바로 바깥(inset:-2px)에 링을 두르고 z-index:1로
+   불투명 버튼 배경 "위"에 올려 또렷이 보이게 한다(이전엔 z:-1라 배경 뒤로 가려졌음).
+   바깥 radius는 버튼+2px이라 정확히 맞물리도록 calc로 보정, 안쪽을 마스크로 도려내
+   링(2.5px)만 남기고 버튼 채움은 그대로 비춰 틈/이중보더 없이 딱 붙는다.
+   pointer-events:none으로 클릭은 버튼이 그대로 받게 한다. */
+.cta-orchard-ring::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: calc(1rem + 2px); /* 버튼 rounded-2xl(16px) + 바깥 2px 보정 */
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--orchard-angle),
+    rgb(95 166 60) 0%,         /* 키위 그린(딥) */
+    rgb(168 224 143) 22%,      /* 라임 하이라이트 */
+    rgb(251 248 240 / 0.92) 40%,/* 크림 하이라이트 */
+    rgb(132 207 106) 58%,      /* 키위 그린(밝음) */
+    rgb(168 224 143) 80%,      /* 라임 하이라이트 */
+    rgb(95 166 60) 100%        /* 키위 그린(딥) */
+  );
+  /* 링만 보이도록: 내부를 마스크로 도려냄 (content-box vs border-box 차집합) */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: orchard-spin 5s linear infinite;
+}
+
+/* 은은한 그린 글로우 — 같은 그린 그라데이션을 흐리게 깔아 발광감(box-shadow 스팸 회피).
+   글로우는 버튼 밖으로 살짝 번져야 하므로 inset 음수(레이아웃엔 영향 없음). */
+.cta-orchard-ring::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -2;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--orchard-angle),
+    rgb(95 166 60 / 0.5),
+    rgb(168 224 143 / 0.45),
+    rgb(132 207 106 / 0.5),
+    rgb(168 224 143 / 0.4),
+    rgb(95 166 60 / 0.5)
+  );
+  filter: blur(9px);
+  opacity: 0.55;
+  animation: orchard-spin 5s linear infinite;
+}
+
+/* 다크모드 — 글로우·채도 절제(밝은 배경 위 번쩍임 방지) */
+.dark .cta-orchard-ring::after {
+  opacity: 0.4;
+  filter: blur(11px);
+}
+
+/* 비활성(disabled) 버튼엔 흐르는 링을 감춘다 — 클릭 가능 오해 방지 */
+.cta-orchard-ring:disabled::before,
+.cta-orchard-ring:disabled::after {
+  display: none;
+}
+
+/* 모션 최소화 선호 시: 회전 정지 + 정적 그라데이션 보더로 폴백 */
+@media (prefers-reduced-motion: reduce) {
+  .cta-orchard-ring::before,
+  .cta-orchard-ring::after {
+    animation: none;
+    --orchard-angle: 130deg;
   }
 }

@@ -42,11 +42,11 @@ import {
 import type { UpdateCardPayload } from "../types/deck";
 import type { GrammarItem } from "../types/grammar";
 
-// 학습/문법 연습 시작 CTA — 코랄 그라데이션의 "느낌"은 유지하되 채도·글로우를 낮춤.
-// 키위 그린에서 코랄로 부드럽게 번지는 따뜻한 톤 + 낮은 그림자(기존 shadow-pop 0.28 → 0.18).
-// 삭제(danger) 버튼의 강렬한 코랄은 경고색으로 그대로 둔다.
+// 학습/문법 연습 시작 CTA — 키위 그린 톤 그라데이션(코랄 제거)에 흐르는 그린 외곽선(.cta-orchard-ring).
+// 밝은 라임→메인 그린→딥 그린으로 깊이감을 주고, 그림자는 그린 발광 톤으로.
+// 삭제(danger) 버튼의 코랄은 경고색이라 그대로 둔다(이 상수와 무관).
 const START_CTA =
-  "bg-gradient-to-br from-kiwi via-kiwi-400 to-pop hover:from-kiwi-600 hover:via-kiwi to-pop-dark shadow-[0_5px_18px_rgba(255,138,122,0.18)]";
+  "cta-orchard-ring bg-gradient-to-br from-kiwi-400 via-kiwi to-kiwi-600 hover:from-kiwi hover:via-kiwi-600 hover:to-kiwi-700 shadow-[0_5px_18px_rgba(107,191,89,0.22)]";
 
 export default function DeckDetail() {
   const { t } = useTranslation();
@@ -212,7 +212,7 @@ export default function DeckDetail() {
 
   if (deckError) {
     return (
-      <div className="min-h-[100dvh]">
+      <div className="min-h-[100dvh] md:min-h-0">
         <PageHeader title={t("deck.detail")} onBack={() => navigate("/")} />
         <div className="px-5 pt-10 text-center">
           <p className="text-body-sm font-bold text-seed/60">
@@ -233,7 +233,7 @@ export default function DeckDetail() {
     : cards?.filter((c) => c.is_learned).length ?? 0;
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader
         title={deck?.title || t("deck.detail")}
         onBack={() => navigate("/")}

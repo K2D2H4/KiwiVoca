@@ -36,7 +36,7 @@ export default function Stats() {
     overview.streak_days === 0;
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       {/* ===== 그린 헤더 ===== */}
       <header className="seed-dots bg-kiwi px-5 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
         <div className="mx-auto w-full max-w-screen-md">

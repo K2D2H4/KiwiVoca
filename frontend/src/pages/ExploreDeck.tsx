@@ -41,7 +41,7 @@ export default function ExploreDeck() {
 
   if (isError) {
     return (
-      <div className="min-h-[100dvh]">
+      <div className="min-h-[100dvh] md:min-h-0">
         <PageHeader title={t("explore.detail")} onBack={() => navigate("/explore")} />
         <div className="px-5 pt-16">
           <EmptyState
@@ -65,35 +65,35 @@ export default function ExploreDeck() {
   }
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader
         title={deck?.title || t("explore.detail")}
         onBack={() => navigate("/explore")}
       />
 
       <div className="mx-auto max-w-screen-sm px-5 pt-4">
-        {/* 메타 카드 — 코랄 톤으로 "공유된 덱" 강조 */}
+        {/* 메타 카드 — 차분한 surface 카드(녹색 악센트), 복사 CTA가 돋보이게 */}
         {deckLoading ? (
           <Skeleton className="h-32 w-full" rounded="xl" />
         ) : deck ? (
-          <section className="seed-dots rounded-3xl bg-pop p-5 text-white shadow-pop">
+          <section className="rounded-3xl bg-surface p-5 shadow-soft ring-1 ring-border">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge tone="outline" size="sm" className="text-white ring-white/40">
+              <Badge tone={deck.kind === "grammar" ? "neutral" : "kiwi"} size="sm">
                 {deck.kind === "grammar"
                   ? t("deck.kindGrammar")
                   : t("deck.kindVocab")}
               </Badge>
-              <Badge tone="outline" size="sm" className="text-white ring-white/40">
+              <Badge tone="outline" size="sm">
                 {langLabel(deck.lang_term)}
-                <ArrowRight size={11} className="mx-0.5 opacity-60" />
+                <ArrowRight size={11} className="mx-0.5 opacity-50" />
                 {langLabel(deck.lang_def)}
               </Badge>
             </div>
             {deck.description && (
-              <p className="mt-3 text-body-sm text-white/90">{deck.description}</p>
+              <p className="mt-3 text-body-sm text-seed/60">{deck.description}</p>
             )}
-            <p className="mt-3 flex items-center gap-1.5 text-body-sm font-bold text-white/90">
-              <Layers size={15} />
+            <p className="mt-3 flex items-center gap-1.5 text-body-sm font-bold text-seed/70">
+              <Layers size={15} className="text-kiwi-500" />
               {t("deck.cardCount", { count: cardCount })}
             </p>
           </section>
@@ -118,7 +118,7 @@ export default function ExploreDeck() {
 
         {/* 카드 미리보기 — 읽기 전용 */}
         <div className="mt-5 pb-4">
-          <p className="mb-2.5 text-caption font-bold uppercase tracking-wide text-pop-dark">
+          <p className="mb-2.5 text-caption font-bold uppercase tracking-wide text-seed/45">
             {t("explore.previewTitle")}
           </p>
           {cardsLoading ? (

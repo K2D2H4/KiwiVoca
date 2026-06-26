@@ -260,7 +260,7 @@ export default function GrammarCreate() {
   // ── 추출/생성 로딩 ──────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-[100dvh]">
+      <div className="min-h-[100dvh] md:min-h-0">
         <PageHeader title={t("grammar.addTitle")} />
         <div className="flex flex-col items-center px-6 pt-16 text-center">
           <KiwiBuddy mood="sleepy" size={104} float />
@@ -287,7 +287,7 @@ export default function GrammarCreate() {
   };
 
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-[100dvh] md:min-h-0">
       <PageHeader title={t("grammar.addTitle")} onBack={onBack} />
 
       <div className="mx-auto max-w-screen-sm">
