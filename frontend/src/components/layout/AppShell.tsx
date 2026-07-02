@@ -22,6 +22,7 @@ import Sheet from "../ui/Sheet";
 import CreateSheet from "./CreateSheet";
 import { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
+import { useIsBusy } from "../../store/uiStore";
 
 interface TabDef {
   key: "home" | "study" | "explore" | "stats" | "profile";
@@ -53,6 +54,8 @@ export default function AppShell() {
 
   // 통합 만들기 시트 — FAB/사이드바 "만들기" 공용
   const [createOpen, setCreateOpen] = useState(false);
+  // AI 생성(단어/문법) 진행 중엔 만들기 진입 차단
+  const busy = useIsBusy();
 
   return (
     <div className="min-h-[100dvh] bg-cream no-x md:flex md:h-[100dvh] md:overflow-hidden">
@@ -99,7 +102,8 @@ export default function AppShell() {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="mt-2 flex items-center gap-3 rounded-2xl bg-kiwi px-3.5 py-3 text-body-sm font-bold text-white shadow-kiwi-glow transition active:scale-[0.98] hover:bg-kiwi-600"
+            disabled={busy}
+            className="mt-2 flex items-center gap-3 rounded-2xl bg-kiwi px-3.5 py-3 text-body-sm font-bold text-white shadow-kiwi-glow transition active:scale-[0.98] hover:bg-kiwi-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:bg-kiwi"
           >
             <Plus size={22} strokeWidth={2.6} />
             <span>{t("create.title")}</span>
@@ -158,15 +162,18 @@ export default function AppShell() {
           <motion.button
             type="button"
             onClick={() => setCreateOpen(true)}
+            disabled={busy}
             aria-label={t("create.title")}
-            whileTap={{ scale: 0.9 }}
+            whileTap={busy ? undefined : { scale: 0.9 }}
             transition={{ type: "spring", stiffness: 500, damping: 26 }}
             className={[
               "pointer-events-auto flex items-center justify-center rounded-full text-white outline-none ring-4 ring-cream",
               "focus-visible:ring-kiwi-300",
-              createOpen
-                ? "bg-kiwi-600 shadow-kiwi-glow"
-                : "bg-kiwi shadow-kiwi-glow",
+              busy
+                ? "bg-kiwi opacity-40 shadow-none cursor-not-allowed"
+                : createOpen
+                  ? "bg-kiwi-600 shadow-kiwi-glow"
+                  : "bg-kiwi shadow-kiwi-glow",
             ].join(" ")}
             style={{ height: 60, width: 60 }}
           >

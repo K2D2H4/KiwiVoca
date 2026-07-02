@@ -31,6 +31,7 @@ import {
 import { LANG_OPTIONS, getLastLangPair, saveLastLangPair } from "../lib/languages";
 import { useDecks } from "../hooks/useDecks";
 import { useExtract, useGenerateVocab, useCommit } from "../hooks/useImport";
+import { useReportBusy } from "../store/uiStore";
 import type { DeckKind } from "../types/deck";
 import type { CommitCard, CommitPayload, ExtractCandidate } from "../types/import";
 
@@ -99,6 +100,9 @@ export default function ImportPhoto() {
   const generate = useGenerateVocab();
   const commit = useCommit();
   const { data: decks } = useDecks();
+
+  // 사진 추출/AI 생성 중엔 만들기 FAB 비활성화
+  useReportBusy(extract.isPending || generate.isPending);
 
   // grammar 덱에 카드가 들어가는 경로 차단 — kind=grammar로 들어오면 문법 생성으로 보냄
   useEffect(() => {
