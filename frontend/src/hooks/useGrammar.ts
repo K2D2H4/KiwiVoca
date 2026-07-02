@@ -1,7 +1,12 @@
 // 문법 생성/추출/커밋/조회/학습완료 — TanStack Query
 // generate: JSON · extract: multipart(이미지 N장) · commit: JSON
 // items: GET /decks/{id}/grammar · learned: 낙관적 토글
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { deckKey } from "./useDecks";
 import type {
@@ -95,6 +100,25 @@ export function useGrammarItems(
       const { data } = await api.get<GrammarItem[]>(`/decks/${deckId}/grammar`);
       return data ?? [];
     },
+  });
+}
+
+// 여러 덱의 문법 항목 합본 — 연습 옵션 시트 "항목 선택"용.
+// 덱별 캐시 키(grammarItemsKey)를 그대로 써서 단일 덱 조회와 캐시 공유.
+export function useGrammarItemsForDecks(deckIds: (string | number)[]) {
+  return useQueries({
+    queries: deckIds.map((id) => ({
+      queryKey: grammarItemsKey(id),
+      staleTime: 30_000,
+      queryFn: async () => {
+        const { data } = await api.get<GrammarItem[]>(`/decks/${id}/grammar`);
+        return data ?? [];
+      },
+    })),
+    combine: (results) => ({
+      data: results.flatMap((r) => r.data ?? []),
+      isLoading: results.some((r) => r.isLoading),
+    }),
   });
 }
 

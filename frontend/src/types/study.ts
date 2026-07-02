@@ -63,4 +63,7 @@ export interface AnswerResult {
 export interface StudyOutcome {
   cardId: string | number;
   isCorrect: boolean;
+  // 퀴즈 모드(객관식/타이핑)에서만 기록 — 결과 화면 "내 답 vs 정답" 리뷰용
+  userAnswer?: string;
+  correctAnswer?: string;
 }

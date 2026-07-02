@@ -7,13 +7,16 @@ import {
   ArrowRight,
   Camera,
   Check,
+  ChevronUp,
   Copy,
   Globe,
   GraduationCap,
   Layers,
   Link2,
   Lock,
+  Pencil,
   Play,
+  Plus,
   Trash2,
 } from "lucide-react";
 import PageHeader from "../components/layout/PageHeader";
@@ -28,10 +31,17 @@ import {
   Skeleton,
   EmptyState,
   ConfirmSheet,
+  Sheet,
   useToast,
 } from "../components/ui";
 import { langLabel } from "../lib/languages";
-import { useDeck, useDeleteDeck, useCopyDeck, deckKey } from "../hooks/useDecks";
+import {
+  useDeck,
+  useDeleteDeck,
+  useCopyDeck,
+  useUpdateDeck,
+  deckKey,
+} from "../hooks/useDecks";
 import { useCards, useCardMutations, cardsKey } from "../hooks/useCards";
 import { useToggleLearned } from "../hooks/useStudy";
 import { useTogglePublic } from "../hooks/useSharing";
@@ -70,6 +80,7 @@ export default function DeckDetail() {
   });
   const deleteDeck = useDeleteDeck();
   const copyDeck = useCopyDeck();
+  const updateDeck = useUpdateDeck(id);
   const { create, update, remove } = useCardMutations(id);
   const toggleLearned = useToggleLearned(id);
   const toggleGrammarLearned = useToggleGrammarLearned(id);
@@ -78,11 +89,27 @@ export default function DeckDetail() {
   // 공유 링크 복사 완료 표시 (잠깐 체크 아이콘)
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // 덱 이름 변경 시트
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+
   const [confirmDeleteDeck, setConfirmDeleteDeck] = useState(false);
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
   const [pendingCardDelete, setPendingCardDelete] = useState<
     string | number | null
   >(null);
+
+  // 첫 진입/덱 전환 시 스크롤 최상단 — 모바일은 window, 데스크탑은 AppShell 본문 컨테이너가
+  // 스크롤 주체이므로 조상 중 스크롤된 요소도 함께 초기화한다.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    let el: HTMLElement | null = rootRef.current?.parentElement ?? null;
+    while (el) {
+      if (el.scrollTop > 0) el.scrollTop = 0;
+      el = el.parentElement;
+    }
+  }, [id]);
 
   // 사진 가져오기/문법 커밋 직후 토스트 (location.state.imported | grammarImported)
   const navState = location.state as
@@ -105,7 +132,8 @@ export default function DeckDetail() {
     }
   }, [importedCount, grammarImportedCount, toast, t]);
 
-  // 카드 추가 폼 상태
+  // 카드 추가 폼 상태 — 기본은 접힘, 버튼으로 펼침
+  const [addFormOpen, setAddFormOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [reading, setReading] = useState("");
   const [definition, setDefinition] = useState("");
@@ -181,6 +209,20 @@ export default function DeckDetail() {
     navigate("/", { replace: true });
   };
 
+  // 덱 이름 변경 — PATCH /decks/{id} { title }, 성공 시 캐시 invalidate(훅 내부)
+  const onRename = async (e: FormEvent) => {
+    e.preventDefault();
+    const title = renameValue.trim();
+    if (!title || updateDeck.isPending) return;
+    try {
+      await updateDeck.mutateAsync({ title });
+      setRenameOpen(false);
+      toast.success(t("deck.renamedToast"));
+    } catch {
+      toast.error(t("deck.renameError"));
+    }
+  };
+
   // 공개 토글 — 실패 시 토스트
   const onTogglePublic = async (next: boolean) => {
     try {
@@ -233,13 +275,23 @@ export default function DeckDetail() {
     : cards?.filter((c) => c.is_learned).length ?? 0;
 
   return (
-    <div className="min-h-[100dvh] md:min-h-0">
+    <div ref={rootRef} className="min-h-[100dvh] md:min-h-0">
       <PageHeader
         title={deck?.title || t("deck.detail")}
         onBack={() => navigate("/")}
         right={
           deck && (
             <div className="flex items-center gap-0.5">
+              <IconButton
+                label={t("deck.rename")}
+                variant="ghost"
+                onClick={() => {
+                  setRenameValue(deck.title);
+                  setRenameOpen(true);
+                }}
+              >
+                <Pencil size={19} />
+              </IconButton>
               <IconButton
                 label={t("deck.copy")}
                 variant="ghost"
@@ -268,7 +320,14 @@ export default function DeckDetail() {
         ) : deck ? (
           <section className="seed-dots rounded-3xl bg-kiwi p-5 text-white shadow-soft">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge tone="outline" size="sm" className="text-white ring-white/40">
+              {/* kind 칩 — 문법은 bark 톤(목록 카드와 통일), 단어는 기존 흰 아웃라인 */}
+              <Badge
+                tone={deck.kind === "grammar" ? "bark" : "outline"}
+                size="sm"
+                className={
+                  deck.kind === "grammar" ? "" : "text-white ring-white/40"
+                }
+              >
                 {deck.kind === "grammar"
                   ? t("deck.kindGrammar")
                   : t("deck.kindVocab")}
@@ -433,12 +492,33 @@ export default function DeckDetail() {
             ))}
         </div>
 
-        {/* 카드 추가 폼 — 단어 덱에서만 */}
-        {!isGrammar && (
+        {/* 카드 추가 폼 — 단어 덱에서만. 기본 접힘, 버튼으로 펼침/접기 */}
+        {!isGrammar && !addFormOpen && (
+          <button
+            type="button"
+            onClick={() => setAddFormOpen(true)}
+            className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-kiwi-300 bg-kiwi-50/50 text-body-sm font-bold text-kiwi-700 outline-none transition active:scale-[0.99] hover:bg-kiwi-50 focus-visible:ring-2 focus-visible:ring-kiwi-400"
+          >
+            <Plus size={18} strokeWidth={2.6} />
+            {t("card.addTitle")}
+          </button>
+        )}
+        {!isGrammar && addFormOpen && (
           <Card padding="sm" className="mt-5">
-            <p className="mb-2.5 text-caption font-bold uppercase tracking-wide text-kiwi-700">
-              {t("card.addTitle")}
-            </p>
+            <div className="mb-2.5 flex items-center justify-between gap-2">
+              <p className="text-caption font-bold uppercase tracking-wide text-kiwi-700">
+                {t("card.addTitle")}
+              </p>
+              {/* 접기 — ≥44px 터치 타겟 */}
+              <button
+                type="button"
+                onClick={() => setAddFormOpen(false)}
+                className="flex min-h-[44px] items-center gap-1 rounded-full px-2.5 text-caption font-bold text-seed/45 outline-none transition active:scale-95 hover:text-seed/70 focus-visible:ring-2 focus-visible:ring-kiwi-400"
+              >
+                <ChevronUp size={15} strokeWidth={2.6} />
+                {t("common.close")}
+              </button>
+            </div>
             <form onSubmit={onAdd}>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <AddInput
@@ -587,6 +667,32 @@ export default function DeckDetail() {
           navigate(`/study/${id}/${mode}`);
         }}
       />
+
+      {/* 덱 이름 변경 시트 */}
+      <Sheet
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        title={t("deck.rename")}
+      >
+        <form onSubmit={onRename} className="space-y-3 pt-1">
+          <TextField
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder={t("deck.titlePlaceholder")}
+            maxLength={100}
+            autoFocus
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            loading={updateDeck.isPending}
+            disabled={!renameValue.trim() || updateDeck.isPending}
+          >
+            {t("common.save")}
+          </Button>
+        </form>
+      </Sheet>
 
       {/* 덱 삭제 확인 */}
       <ConfirmSheet

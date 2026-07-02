@@ -58,7 +58,7 @@ export default function CardEditorRow({
             <TextField
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder={t("card.term")}
+              placeholder={t("card.term") + " *"}
             />
             <TextField
               value={reading}
@@ -69,7 +69,7 @@ export default function CardEditorRow({
               <TextField
                 value={definition}
                 onChange={(e) => setDefinition(e.target.value)}
-                placeholder={t("card.definition")}
+                placeholder={t("card.definition") + " *"}
               />
             </div>
             <div className="sm:col-span-2">

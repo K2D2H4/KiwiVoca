@@ -1,9 +1,9 @@
 // 학습 결과 — 정답률 카운트업, 통계 stagger, 고득점 키위 셀레브레이션(transform 컨페티), 틀린 카드 + 재시도.
-// 카운트업/컨페티/stagger 모션 유지, 레이아웃·타이포·버튼만 디자인 시스템화.
-import { useEffect, useRef } from "react";
+// 틀린 카드는 아코디언 — 펼치면 "내 답 vs 정답" 즉시 리뷰(퀴즈 모드에서 userAnswer 기록 시).
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, useReducedMotion } from "framer-motion";
-import { RotateCcw, Home, RefreshCw, Star } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { RotateCcw, Home, RefreshCw, Star, ChevronDown } from "lucide-react";
 import KiwiBuddy, { type KiwiMood } from "../KiwiBuddy";
 import { Card, Button } from "../ui";
 import { useCountUp } from "../../hooks/useCountUp";
@@ -38,10 +38,14 @@ export default function StudyResult({
   const accCount = useCountUp(accuracy, 1.0, 0.35);
 
   const cardById = new Map(cards.map((c) => [String(c.id), c]));
-  const wrongCards = outcomes
+  // 틀린 항목 — 카드 + 당시 내 답(퀴즈 모드에서만 기록됨)
+  const wrongEntries = outcomes
     .filter((o) => !o.isCorrect)
-    .map((o) => cardById.get(String(o.cardId)))
-    .filter((c): c is StudyCard => Boolean(c));
+    .map((o) => ({ outcome: o, card: cardById.get(String(o.cardId)) }))
+    .filter((e): e is { outcome: StudyOutcome; card: StudyCard } =>
+      Boolean(e.card)
+    );
+  const wrongCards = wrongEntries.map((e) => e.card);
 
   // 점수대별 키위 리액션
   const tier =
@@ -163,23 +167,9 @@ export default function StudyResult({
               {t("study.wrongList")}
             </motion.p>
             <ul className="space-y-2">
-              {wrongCards.map((c) => (
-                <motion.li key={c.id} variants={staggerItem}>
-                  <Card
-                    padding="none"
-                    elevation="sm"
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-pop" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body-sm font-bold text-seed">
-                        {c.term}
-                      </span>
-                      <span className="block truncate text-caption font-medium text-seed/45">
-                        {c.definition}
-                      </span>
-                    </span>
-                  </Card>
+              {wrongEntries.map(({ card: c, outcome }, i) => (
+                <motion.li key={`${c.id}-${i}`} variants={staggerItem}>
+                  <WrongCardRow card={c} outcome={outcome} />
                 </motion.li>
               ))}
             </ul>
@@ -210,9 +200,11 @@ export default function StudyResult({
               </Button>
             </motion.div>
           )}
+          {/* 보조 액션 — 다시 학습(재시도와 위계 구분) */}
           <motion.div variants={staggerItem}>
             <Button
-              size="lg"
+              variant="secondary"
+              size="md"
               fullWidth
               leftIcon={<RefreshCw size={18} strokeWidth={2.4} />}
               onClick={onRestart}
@@ -220,12 +212,13 @@ export default function StudyResult({
               {t("study.restart")}
             </Button>
           </motion.div>
+          {/* 메인 완료 CTA — 활성 primary(키위 그린)로 명확하게 */}
           <motion.div variants={staggerItem}>
             <Button
-              variant="ghost"
-              size="md"
+              variant="primary"
+              size="lg"
               fullWidth
-              leftIcon={<Home size={17} strokeWidth={2.4} />}
+              leftIcon={<Home size={18} strokeWidth={2.4} />}
               onClick={onHome}
             >
               {t("study.backHome")}
@@ -234,6 +227,93 @@ export default function StudyResult({
         </div>
       </motion.div>
     </div>
+  );
+}
+
+// 틀린 카드 행 — userAnswer 기록이 있으면 아코디언으로 "내 답 vs 정답" 즉시 리뷰
+function WrongCardRow({
+  card,
+  outcome,
+}: {
+  card: StudyCard;
+  outcome: StudyOutcome;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  // 플래시카드/매칭은 답 기록이 없어 펼침 없이 기존 행 유지
+  const expandable = outcome.userAnswer != null;
+
+  const header = (
+    <>
+      <span className="h-2 w-2 shrink-0 rounded-full bg-pop" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-body-sm font-bold text-seed">
+          {card.term}
+        </span>
+        <span className="block truncate text-caption font-medium text-seed/45">
+          {card.definition}
+        </span>
+      </span>
+    </>
+  );
+
+  if (!expandable) {
+    return (
+      <Card padding="none" elevation="sm" className="flex items-center gap-3 px-4 py-3">
+        {header}
+      </Card>
+    );
+  }
+
+  return (
+    <Card padding="none" elevation="sm" className="overflow-hidden">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-left outline-none transition active:bg-ink-50/60 focus-visible:ring-2 focus-visible:ring-kiwi-400"
+      >
+        {header}
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={spring.snappy}
+          className="shrink-0 text-seed/35"
+        >
+          <ChevronDown size={18} strokeWidth={2.6} />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-1.5 px-4 pb-3.5">
+              {/* 내 답(오답 — 코랄) vs 정답(키위 그린) */}
+              <div className="flex items-start gap-2 rounded-xl bg-pop/8 px-3 py-2">
+                <span className="shrink-0 text-caption font-bold text-pop-dark/70">
+                  {t("study.myAnswer")}
+                </span>
+                <span className="min-w-0 flex-1 break-words text-body-sm font-bold text-pop-dark">
+                  {outcome.userAnswer}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 rounded-xl bg-kiwi/10 px-3 py-2">
+                <span className="shrink-0 text-caption font-bold text-kiwi-dark/70">
+                  {t("study.answerLabel")}
+                </span>
+                <span className="min-w-0 flex-1 break-words text-body-sm font-bold text-kiwi-dark">
+                  {outcome.correctAnswer ?? card.term}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Card>
   );
 }
 

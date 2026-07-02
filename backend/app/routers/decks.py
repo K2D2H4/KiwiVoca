@@ -334,10 +334,10 @@ def copy_deck(
     """
     source = _get_readable_deck(deck_id, current_user, db)
 
-    # 1) 덱 메타 복제 (소유자=현재 사용자, 비공개로)
+    # 1) 덱 메타 복제 (소유자=현재 사용자, 비공개로) — 원본과 구분되게 "copy" 접미사
     new_deck = Deck(
         user_id=current_user.id,
-        title=source.title,
+        title=f"{source.title} copy",
         description=source.description,
         lang_term=source.lang_term,
         lang_def=source.lang_def,

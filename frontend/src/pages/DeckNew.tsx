@@ -1,18 +1,12 @@
-// 덱 생성 — title/description/kind 토글/lang_term·lang_def 선택. 생성 후 상세로 이동.
+// 단어장(vocab) 덱 생성 — title/description/lang_term·lang_def 선택. 문법 덱은 /grammar/new 전용.
+// 생성 후 상세로 이동.
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageHeader from "../components/layout/PageHeader";
-import {
-  Button,
-  TextField,
-  Select,
-  SegmentedControl,
-  useToast,
-} from "../components/ui";
+import { Button, TextField, Select, useToast } from "../components/ui";
 import { LANG_OPTIONS } from "../lib/languages";
 import { useCreateDeck } from "../hooks/useDecks";
-import type { DeckKind } from "../types/deck";
 
 export default function DeckNew() {
   const { t } = useTranslation();
@@ -22,7 +16,6 @@ export default function DeckNew() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [kind, setKind] = useState<DeckKind>("vocab");
   const [langTerm, setLangTerm] = useState("en");
   const [langDef, setLangDef] = useState("ko");
 
@@ -35,7 +28,7 @@ export default function DeckNew() {
       const deck = await createDeck.mutateAsync({
         title: title.trim(),
         description: description.trim() || undefined,
-        kind,
+        kind: "vocab",
         lang_term: langTerm,
         lang_def: langDef,
       });
@@ -78,24 +71,19 @@ export default function DeckNew() {
             maxLength={200}
             className="w-full resize-none rounded-2xl border-2 border-transparent bg-cream/70 px-4 py-3.5 text-base text-seed placeholder:text-seed/30 shadow-inner-soft transition focus:border-kiwi focus:bg-surface focus:outline-none"
           />
-        </label>
-
-        {/* kind 토글 */}
-        <div>
-          <span className="mb-1.5 block text-caption font-bold uppercase tracking-wide text-seed/50">
-            {t("deck.fieldKind")}
+          {/* 글자 수 카운터 — 190자부터 한계 임박 강조 */}
+          <span
+            aria-live="polite"
+            className={[
+              "mt-1 block text-right text-caption tabular-nums transition-colors",
+              description.length >= 190
+                ? "font-bold text-pop"
+                : "text-seed/40",
+            ].join(" ")}
+          >
+            {description.length}/200
           </span>
-          <SegmentedControl<DeckKind>
-            layoutId="deck-kind"
-            ariaLabel={t("deck.fieldKind")}
-            value={kind}
-            onChange={setKind}
-            segments={[
-              { value: "vocab", label: t("deck.kindVocab") },
-              { value: "grammar", label: t("deck.kindGrammar") },
-            ]}
-          />
-        </div>
+        </label>
 
         {/* 언어쌍 select */}
         <div className="grid grid-cols-2 gap-3">
@@ -106,7 +94,8 @@ export default function DeckNew() {
             onChange={(e) => setLangTerm(e.target.value)}
           >
             {LANG_OPTIONS.map((l) => (
-              <option key={l.code} value={l.code}>
+              // 뜻 언어로 이미 선택된 언어는 비활성화 — 동일 언어쌍 방지
+              <option key={l.code} value={l.code} disabled={l.code === langDef}>
                 {l.label}
               </option>
             ))}
@@ -118,7 +107,8 @@ export default function DeckNew() {
             onChange={(e) => setLangDef(e.target.value)}
           >
             {LANG_OPTIONS.map((l) => (
-              <option key={l.code} value={l.code}>
+              // 학습 언어로 이미 선택된 언어는 비활성화 — 동일 언어쌍 방지
+              <option key={l.code} value={l.code} disabled={l.code === langTerm}>
                 {l.label}
               </option>
             ))}

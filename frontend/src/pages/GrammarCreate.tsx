@@ -226,6 +226,9 @@ export default function GrammarCreate() {
     }))
     .filter((it) => it.point && it.explanation);
 
+  // 필수(point/explanation) 미입력 항목 수 — 저장 시 제외됨을 명시적으로 안내
+  const incompleteCount = items.length - validItems.length;
+
   const canCommit =
     validItems.length > 0 &&
     !commit.isPending &&
@@ -320,6 +323,7 @@ export default function GrammarCreate() {
           <ReviewStep
             items={items}
             validCount={validItems.length}
+            incompleteCount={incompleteCount}
             onPatchItem={patchItem}
             onRemoveItem={removeItem}
             onAddItem={addItem}
@@ -336,6 +340,7 @@ export default function GrammarCreate() {
         existingDeckId={existingDeckId}
         decks={grammarDecks}
         itemCount={validItems.length}
+        skippedCount={incompleteCount}
         loading={commit.isPending}
         canCommit={canCommit}
         onTarget={setTarget}
@@ -622,7 +627,7 @@ function AiInput({
 
       <div>
         <TextField
-          label={t("grammar.fieldLevel")}
+          label={t("grammar.fieldLevel") + " *"}
           value={level}
           onChange={(e) => onLevel(e.target.value)}
           placeholder={t("grammar.levelPlaceholder")}
@@ -634,7 +639,8 @@ function AiInput({
             <button
               key={lv}
               type="button"
-              onClick={() => onLevel(lv)}
+              // 같은 칩 재클릭 시 선택 해제 (빈 레벨은 실행 버튼 비활성으로 안전)
+              onClick={() => onLevel(level === lv ? "" : lv)}
               className={[
                 "min-h-[36px] rounded-full px-3.5 text-caption font-bold transition active:scale-95",
                 level === lv
@@ -679,6 +685,7 @@ function AiInput({
 function ReviewStep({
   items,
   validCount,
+  incompleteCount,
   onPatchItem,
   onRemoveItem,
   onAddItem,
@@ -686,6 +693,7 @@ function ReviewStep({
 }: {
   items: DraftItem[];
   validCount: number;
+  incompleteCount: number;
   onPatchItem: (key: string, patch: Partial<DraftItem>) => void;
   onRemoveItem: (key: string) => void;
   onAddItem: () => void;
@@ -747,22 +755,24 @@ function ReviewStep({
       {/* 스티키 저장 바가 마지막 항목을 가리지 않도록 여백 */}
       <div className="h-24" />
 
-      {/* 하단 저장 바 — 단어 import와 동일 패턴 */}
+      {/* 하단 저장 바 — 카운트는 버튼 라벨에 포함되므로 풀폭 CTA 하나로 정리 */}
       <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-raised md:bottom-0">
         <div className="border-t border-border bg-surface/95 px-5 pb-3 pt-3 shadow-[0_-6px_20px_rgba(46,58,36,0.08)] backdrop-blur md:pb-3">
-          <div className="mx-auto flex max-w-screen-sm items-center gap-3">
-            <div className="min-w-0 shrink-0">
-              <p className="font-display text-h3 font-bold leading-none text-seed">
-                {validCount}
+          <div className="mx-auto max-w-screen-sm">
+            {/* 미완성 항목 안내 — 전부 미완성이면 에러(저장 불가), 일부면 제외 경고 */}
+            {validCount === 0 ? (
+              <p className="mb-2 text-center text-caption font-bold text-danger">
+                {t("grammar.incompleteAll")}
               </p>
-              <p className="mt-0.5 text-caption font-bold text-seed/45">
-                {t("grammar.saveBarCount")}
+            ) : incompleteCount > 0 ? (
+              <p className="mb-2 text-center text-caption font-bold text-warning">
+                {t("grammar.incompleteSkip", { count: incompleteCount })}
               </p>
-            </div>
+            ) : null}
             <Button
               variant="primary"
               size="lg"
-              className="flex-1"
+              fullWidth
               disabled={validCount === 0}
               onClick={onContinue}
             >
@@ -858,6 +868,7 @@ function CommitSheet({
   existingDeckId,
   decks,
   itemCount,
+  skippedCount,
   loading,
   canCommit,
   onTarget,
@@ -872,6 +883,7 @@ function CommitSheet({
   existingDeckId: string;
   decks: { id: string | number; title: string }[];
   itemCount: number;
+  skippedCount: number;
   loading: boolean;
   canCommit: boolean;
   onTarget: (t: "new" | "existing") => void;
@@ -891,6 +903,13 @@ function CommitSheet({
       <p className="-mt-1 text-body-sm text-seed/55">
         {t("grammar.saveSubtitle", { count: itemCount })}
       </p>
+
+      {/* 미완성 항목 제외 경고 — 저장 확정 전 마지막 확인 */}
+      {skippedCount > 0 && (
+        <p className="mt-3 rounded-2xl bg-warning-soft px-4 py-3 text-body-sm font-bold text-warning">
+          {t("grammar.incompleteSkip", { count: skippedCount })}
+        </p>
+      )}
 
       <div className="mt-4">
         <SegmentedControl<"new" | "existing">

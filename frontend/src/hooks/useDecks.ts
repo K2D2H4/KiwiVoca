@@ -74,8 +74,10 @@ export function useCopyDeck() {
       const { data } = await api.post<Deck>(`/decks/${id}/copy`);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: DECKS_KEY });
+      // 새 덱 상세 캐시 시드 — 복사 직후 이동 시 스켈레톤 없이 즉시 표시
+      qc.setQueryData(deckKey(data.id), data);
     },
   });
 }

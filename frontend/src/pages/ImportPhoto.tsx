@@ -654,27 +654,16 @@ function PhotoArea({
         )}
       </div>
 
-      {/* 카메라 촬영 + 갤러리 선택 */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <Button
-          variant="secondary"
-          size="md"
-          fullWidth
-          leftIcon={<Camera size={18} />}
-          onClick={() => cameraRef.current?.click()}
-        >
-          {t("import.takePhoto")}
-        </Button>
-        <Button
-          variant="secondary"
-          size="md"
-          fullWidth
-          leftIcon={<ImageIcon size={18} />}
-          onClick={() => inputRef.current?.click()}
-        >
-          {t("import.fromGallery")}
-        </Button>
-      </div>
+      {/* 카메라 촬영 — 갤러리 선택은 위 드롭존/추가 타일과 중복이라 버튼 제거 */}
+      <Button
+        variant="secondary"
+        size="md"
+        fullWidth
+        leftIcon={<Camera size={18} />}
+        onClick={() => cameraRef.current?.click()}
+      >
+        {t("import.takePhoto")}
+      </Button>
 
       {/* 숨은 input — 갤러리(multiple) + 카메라(capture) */}
       <input
