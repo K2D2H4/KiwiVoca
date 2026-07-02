@@ -44,9 +44,10 @@ export function useCopyDeck() {
       const { data } = await api.post<Deck>(`/decks/${id}/copy`);
       return data;
     },
-    onSuccess: () => {
-      // 내 단어장 목록 갱신
+    onSuccess: (data) => {
+      // 내 단어장 목록 갱신 + 새 덱 상세 캐시 시드(이동 시 스켈레톤 없이 즉시 표시)
       qc.invalidateQueries({ queryKey: ["decks"], exact: true });
+      qc.setQueryData(deckKey(data.id), data);
     },
   });
 }
@@ -61,7 +62,19 @@ export function useTogglePublic(id: string | number) {
       });
       return data;
     },
-    onSuccess: () => {
+    // 낙관적 업데이트 — 클릭 즉시 스위치가 반응하고, 실패 시 롤백
+    onMutate: async (isPublic) => {
+      await qc.cancelQueries({ queryKey: deckKey(id) });
+      const prev = qc.getQueryData<Deck>(deckKey(id));
+      if (prev) {
+        qc.setQueryData<Deck>(deckKey(id), { ...prev, is_public: isPublic });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(deckKey(id), ctx.prev);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: deckKey(id) });
       qc.invalidateQueries({ queryKey: ["decks"], exact: true });
       // 공개 갤러리 목록도 무효화(공개/비공개 전환 반영)

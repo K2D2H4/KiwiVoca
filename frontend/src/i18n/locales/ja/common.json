@@ -100,6 +100,9 @@
     "copy": "コピー",
     "copiedToast": "単語帳をコピーしました。",
     "copyError": "単語帳をコピーできませんでした。",
+    "rename": "名前を変更",
+    "renamedToast": "単語帳の名前を変更しました。",
+    "renameError": "名前を変更できませんでした。",
     "mergeEntry": "まとめる",
     "mergeSelectHint": "まとめる単語帳を2つ以上選んでください。同じ種類どうしのみまとめられます。",
     "mergeSelectedCount": "{{count}}件選択中",
@@ -238,7 +241,7 @@
   },
   "import": {
     "title": "写真から追加",
-    "fromPhotoShort": "写真",
+    "fromPhotoShort": "写真から単語を追加",
     "uploadIntro": "単語リストの写真をアップロードすると、単語と意味を自動で読み取ります。",
     "pickPhotos": "写真を選ぶ",
     "pickHint": "最大{{max}}枚まで",

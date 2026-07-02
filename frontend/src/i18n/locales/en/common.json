@@ -100,6 +100,9 @@
     "copy": "Copy",
     "copiedToast": "Deck copied.",
     "copyError": "Couldn't copy the deck.",
+    "rename": "Rename",
+    "renamedToast": "Deck renamed.",
+    "renameError": "Couldn't rename the deck.",
     "mergeEntry": "Merge",
     "mergeSelectHint": "Pick 2 or more decks to merge. Only the same kind can be merged.",
     "mergeSelectedCount": "{{count}} selected",
@@ -238,7 +241,7 @@
   },
   "import": {
     "title": "Add from photo",
-    "fromPhotoShort": "Photo",
+    "fromPhotoShort": "Add words from photo",
     "uploadIntro": "Upload a photo of your wordlist and we'll read the terms and meanings for you.",
     "pickPhotos": "Choose photos",
     "pickHint": "Up to {{max}} photos",
