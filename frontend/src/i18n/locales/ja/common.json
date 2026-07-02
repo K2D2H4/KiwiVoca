@@ -170,6 +170,12 @@
     "correct": "正解",
     "wrong": "不正解",
     "wrongList": "間違えたカード",
+    "prevQuestion": "前の問題",
+    "exitConfirmTitle": "学習をやめますか？",
+    "exitConfirmMessage": "今離れると回答は保存されません。",
+    "exitConfirmCta": "やめる",
+    "myAnswer": "自分の答え",
+    "answerLabel": "正解",
     "retryWrong": "間違えた{{count}}枚を再挑戦",
     "restart": "もう一度学習",
     "backHome": "やめる",
@@ -378,7 +384,13 @@
       "problemCountLabel": "問題数",
       "problemCountPreview": "練習問題を{{count}}個作る",
       "summaryAvailableLoading": "文法を数えています…",
-      "summaryAvailableItems": "文法{{count}}個を選択"
+      "summaryAvailableItems": "文法{{count}}個を選択",
+      "itemsLabel": "練習する文法",
+      "selectAll": "すべて選択",
+      "deselectAll": "すべて解除",
+      "itemsAllHint": "すべての文法から問題を作ります。",
+      "itemsSelectedHint": "選択した{{count}}件だけ練習します。",
+      "itemsNoneHint": "最低1つは選んでください。"
     },
     "practiceItem": "練習"
   },

@@ -170,6 +170,12 @@
     "correct": "맞음",
     "wrong": "틀림",
     "wrongList": "틀린 카드",
+    "prevQuestion": "이전 문제",
+    "exitConfirmTitle": "학습을 그만할까요?",
+    "exitConfirmMessage": "지금 나가면 답변이 저장되지 않아요.",
+    "exitConfirmCta": "나가기",
+    "myAnswer": "내 답",
+    "answerLabel": "정답",
     "retryWrong": "틀린 {{count}}개 다시",
     "restart": "다시 학습하기",
     "backHome": "그만하기",
@@ -378,7 +384,13 @@
       "problemCountLabel": "문제 수",
       "problemCountPreview": "연습 문제 {{count}}개 만들기",
       "summaryAvailableLoading": "문법 항목을 세는 중…",
-      "summaryAvailableItems": "문법 {{count}}개 선택됨"
+      "summaryAvailableItems": "문법 {{count}}개 선택됨",
+      "itemsLabel": "연습할 문법",
+      "selectAll": "전체 선택",
+      "deselectAll": "전체 해제",
+      "itemsAllHint": "전체 문법에서 문제를 만들어요.",
+      "itemsSelectedHint": "선택한 {{count}}개 항목만 연습해요.",
+      "itemsNoneHint": "최소 1개는 선택해야 해요."
     },
     "practiceItem": "연습"
   },

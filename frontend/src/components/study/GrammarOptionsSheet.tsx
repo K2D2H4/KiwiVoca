@@ -1,17 +1,20 @@
-// 문법 연습 옵션 — 다단계 필터(레벨 → 카테고리) + 범위 + 개수. StudyOptionsSheet 패턴의 문법 전용 변형.
+// 문법 연습 옵션 — 다단계 필터(레벨 → 카테고리) + 항목 직접 선택 + 범위 + 개수.
 // 레벨 다중 선택 → 선택된 각 레벨의 카테고리를 다층 다중 선택. 선택 카운트로 가용 문제 수 안내.
+// 항목 선택: 기본 전체 선택. 일부만 고르면 itemIds 로 전달(레벨/카테고리 필터 대신 적용).
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sparkles, Play, ChevronDown } from "lucide-react";
+import { Sparkles, Play, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SegmentedControl, Button, TextField } from "../ui";
-import type { GrammarFilterLevel } from "../../types/grammar";
+import type { GrammarFilterLevel, GrammarItem } from "../../types/grammar";
 
 export type PracticeScope = "all" | "unlearned";
 
 export interface GrammarPracticeOptions {
   levels: string[];
   categories: string[];
+  // 직접 고른 문법 항목 — 비어 있으면 레벨/카테고리 필터 방식(전체)
+  itemIds: number[];
   scope: PracticeScope;
   limit: number; // 생성할 문제 수
 }
@@ -20,6 +23,9 @@ interface GrammarOptionsSheetProps {
   open: boolean;
   levels: GrammarFilterLevel[];
   loading?: boolean;
+  // 연습할 문법 항목 목록(체크박스 선택용) — 미전달 시 섹션 숨김
+  items?: GrammarItem[];
+  itemsLoading?: boolean;
   // 단일 항목 연습 모드 — 레벨/카테고리/범위 숨기고 "문제 수"만 고름
   itemMode?: boolean;
   onClose: () => void;
@@ -46,6 +52,8 @@ export default function GrammarOptionsSheet({
   open,
   levels,
   loading,
+  items = [],
+  itemsLoading,
   itemMode = false,
   onClose,
   onStart,
@@ -55,6 +63,9 @@ export default function GrammarOptionsSheet({
   // 선택된 레벨(이름) / 선택된 카테고리(레벨::카테고리 키)
   const [selLevels, setSelLevels] = useState<string[]>([]);
   const [selCats, setSelCats] = useState<string[]>([]);
+  // 항목 선택 — "해제된 id" 집합으로 관리(기본: 아무것도 해제 안 됨 = 전체 선택).
+  // items 가 뒤늦게 로드돼도 기본값이 전체 선택으로 유지된다.
+  const [deselected, setDeselected] = useState<Set<number>>(new Set());
   const [scope, setScope] = useState<PracticeScope>("all");
   const [count, setCount] = useState<number | "custom">(DEFAULT_COUNT);
   const [customValue, setCustomValue] = useState("");
@@ -64,11 +75,37 @@ export default function GrammarOptionsSheet({
     if (open) {
       setSelLevels([]);
       setSelCats([]);
+      setDeselected(new Set());
       setScope("all");
       setCount(DEFAULT_COUNT);
       setCustomValue("");
     }
   }, [open]);
+
+  // 항목 선택 파생 상태
+  const selectedItemIds = useMemo(
+    () => items.filter((it) => !deselected.has(it.id)).map((it) => it.id),
+    [items, deselected]
+  );
+  const allItemsSelected = items.length > 0 && selectedItemIds.length === items.length;
+  // 일부만 선택됨 → itemIds 로 연습(레벨/카테고리 필터 대신)
+  const hasItemSelection =
+    !itemMode && items.length > 0 && !allItemsSelected;
+
+  const toggleItem = (id: number) => {
+    setDeselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllItems = () => {
+    setDeselected(
+      allItemsSelected ? new Set(items.map((it) => it.id)) : new Set()
+    );
+  };
 
   const toggleLevel = (level: string) => {
     setSelLevels((prev) => {
@@ -116,6 +153,9 @@ export default function GrammarOptionsSheet({
     }, 0);
   }, [levels, selLevels, selCats, activeLevels]);
 
+  // 요약 표시용 개수 — 항목을 일부 골랐으면 그 선택 수를, 아니면 필터 가용수를 사용.
+  const summaryCount = hasItemSelection ? selectedItemIds.length : available;
+
   const resolvedLimit = useMemo(() => {
     if (count === "custom") {
       const n = parseInt(customValue, 10);
@@ -126,10 +166,12 @@ export default function GrammarOptionsSheet({
 
   // limit = 생성할 문제 수이므로 양수여야 시작 가능.
   // 항목 모드는 필터 가용수와 무관(특정 항목만 연습) → available 게이트 제외.
+  // 항목을 일부만 골랐으면 최소 1개는 선택돼 있어야 시작 가능.
   const canStart =
     Number.isFinite(resolvedLimit) &&
     resolvedLimit > 0 &&
-    (itemMode || available > 0);
+    (itemMode ||
+      (hasItemSelection ? selectedItemIds.length > 0 : available > 0));
 
   const handleStart = () => {
     if (!canStart) return;
@@ -138,8 +180,10 @@ export default function GrammarOptionsSheet({
       new Set(selCats.map((k) => k.split("::").slice(1).join("::")))
     );
     onStart({
-      levels: itemMode ? [] : selLevels,
-      categories: itemMode ? [] : cats,
+      // 항목을 직접 골랐으면 itemIds 로 연습(레벨/카테고리 필터는 비움 — 충돌 방지)
+      levels: itemMode || hasItemSelection ? [] : selLevels,
+      categories: itemMode || hasItemSelection ? [] : cats,
+      itemIds: hasItemSelection ? selectedItemIds : [],
       scope: itemMode ? "all" : scope,
       limit: resolvedLimit,
     });
@@ -267,6 +311,82 @@ export default function GrammarOptionsSheet({
       </AnimatePresence>
       )}
 
+      {/* 항목 직접 선택 — 덱 모드만. 기본 전체 선택, 원하는 항목만 남기면 그 항목으로 연습 */}
+      {!itemMode && (items.length > 0 || itemsLoading) && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between">
+            <p className="text-caption font-bold uppercase tracking-wide text-seed/45">
+              {t("grammar.practice.itemsLabel")}
+            </p>
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAllItems}
+                className="min-h-[32px] rounded-full px-2.5 text-caption font-bold text-kiwi-700 outline-none transition active:scale-95 hover:bg-kiwi/10 focus-visible:ring-2 focus-visible:ring-kiwi-400"
+              >
+                {allItemsSelected
+                  ? t("grammar.practice.deselectAll")
+                  : t("grammar.practice.selectAll")}
+              </button>
+            )}
+          </div>
+          {itemsLoading && items.length === 0 ? (
+            <p className="mt-2 text-body-sm text-seed/40">
+              {t("common.loading")}
+            </p>
+          ) : (
+            <>
+              <div className="mt-1.5 max-h-56 space-y-1 overflow-y-auto rounded-3xl bg-ink-50/60 p-2 ring-1 ring-border/40">
+                {items.map((it) => {
+                  const checked = !deselected.has(it.id);
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={checked}
+                      onClick={() => toggleItem(it.id)}
+                      className="flex min-h-[44px] w-full items-center gap-2.5 rounded-2xl px-2.5 py-2 text-left outline-none transition active:scale-[0.99] hover:bg-surface focus-visible:ring-2 focus-visible:ring-kiwi-400"
+                    >
+                      {/* 체크박스 비주얼 */}
+                      <span
+                        aria-hidden="true"
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition ${
+                          checked
+                            ? "bg-kiwi text-white shadow-kiwi-glow"
+                            : "bg-surface ring-1 ring-border"
+                        }`}
+                      >
+                        {checked && <Check size={13} strokeWidth={3.2} />}
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate text-body-sm font-bold ${
+                          checked ? "text-seed" : "text-seed/40"
+                        }`}
+                      >
+                        {it.point}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-kiwi/10 px-2 py-0.5 text-[10px] font-black text-kiwi-dark">
+                        {it.level}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 px-1 text-caption font-medium text-seed/40">
+                {allItemsSelected
+                  ? t("grammar.practice.itemsAllHint")
+                  : selectedItemIds.length === 0
+                    ? t("grammar.practice.itemsNoneHint")
+                    : t("grammar.practice.itemsSelectedHint", {
+                        count: selectedItemIds.length,
+                      })}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* 범위 — 덱 모드만 */}
       {!itemMode && (
       <div className="mb-4">
@@ -287,7 +407,7 @@ export default function GrammarOptionsSheet({
           <Sparkles size={13} strokeWidth={2.6} />
           {loading
             ? t("grammar.practice.summaryAvailableLoading")
-            : t("grammar.practice.summaryAvailableItems", { count: available })}
+            : t("grammar.practice.summaryAvailableItems", { count: summaryCount })}
         </p>
       </div>
       )}

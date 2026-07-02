@@ -1,5 +1,6 @@
 // 객관식 — 문제 슬라이드 전환, 보기 stagger 등장, 정답 체크 바운스 / 오답 shake + 정답 강조
-import { useEffect, useMemo, useState } from "react";
+// 이전 문제로 돌아가면 이미 답한 문제를 리뷰(공개 상태)로 보여주고 "다음"으로 복귀.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import StudyTopBar from "./StudyTopBar";
@@ -57,11 +58,24 @@ export default function ChoiceQuiz({
   const questions = useMemo(() => buildQuestions(cards), [cards]);
 
   const [index, setIndex] = useState(0);
-  const [picked, setPicked] = useState<string | null>(null);
-  const [score, setScore] = useState(0);
   const [outcomes, setOutcomes] = useState<StudyOutcome[]>([]);
+  // 선택 직후 900ms 자동 진행 대기 중 여부 — 이 동안엔 "다음" 버튼 숨김
+  const [pendingAuto, setPendingAuto] = useState(false);
+  const timerRef = useRef<number | null>(null);
 
   const q = questions[index];
+  // outcomes 는 문제 순서대로 쌓임 — index 위치에 있으면 이미 답한 문제(리뷰)
+  const answered = outcomes[index];
+  const picked = answered?.userAnswer ?? null;
+  const score = outcomes.filter((o) => o.isCorrect).length;
+
+  // 언마운트 시 자동 진행 타이머 정리
+  useEffect(
+    () => () => {
+      if (timerRef.current != null) window.clearTimeout(timerRef.current);
+    },
+    []
+  );
 
   // 현재+다음 문항 term 을 미리 합성해 발음 버튼 지연 완화(캐시 워밍)
   useEffect(() => {
@@ -72,24 +86,44 @@ export default function ChoiceQuiz({
   }, [index, questions, langTerm, prefetch]);
 
   const onPick = (opt: string) => {
-    if (picked !== null || !q) return; // 잠금
+    if (answered || !q) return; // 잠금(리뷰 포함)
     const isCorrect = opt === q.answer;
-    setPicked(opt);
     play(isCorrect ? "correct" : "wrong");
-    if (isCorrect) setScore((p) => p + 1);
     onAnswer(q.card.id, isCorrect);
-    const next = [...outcomes, { cardId: q.card.id, isCorrect }];
+    const next = [
+      ...outcomes,
+      { cardId: q.card.id, isCorrect, userAnswer: opt, correctAnswer: q.answer },
+    ];
     setOutcomes(next);
 
     // 피드백 후 자동 진행
-    window.setTimeout(() => {
+    setPendingAuto(true);
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      setPendingAuto(false);
       if (index + 1 >= questions.length) {
         onComplete(next);
       } else {
         setIndex((p) => p + 1);
-        setPicked(null);
       }
     }, 900);
+  };
+
+  // 이전 문제 — 자동 진행 타이머 취소 후 이동(답한 문제는 리뷰로 보임)
+  const goPrev = () => {
+    if (index === 0) return;
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+      setPendingAuto(false);
+    }
+    setIndex((p) => p - 1);
+  };
+
+  // 리뷰에서 앞으로 복귀 — 마지막 문제까지 다 답했으면 완료
+  const goNext = () => {
+    if (index + 1 >= questions.length) onComplete(outcomes);
+    else setIndex((p) => p + 1);
   };
 
   if (!q) return null;
@@ -101,6 +135,9 @@ export default function ChoiceQuiz({
         current={index + 1}
         total={questions.length}
         right={<ScoreChip score={score} />}
+        dirty={outcomes.length > 0}
+        onPrev={goPrev}
+        prevDisabled={index === 0}
       />
 
       <div className="mx-auto flex w-full max-w-screen-sm flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -157,6 +194,27 @@ export default function ChoiceQuiz({
                 />
               ))}
             </motion.div>
+
+            {/* 리뷰 상태(뒤로 갔다 온 문제) — 자동 진행이 없으므로 "다음"으로 복귀 */}
+            {answered && !pendingAuto && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={spring.snappy}
+                className="mt-auto pt-4"
+              >
+                <motion.button
+                  type="button"
+                  onClick={goNext}
+                  whileTap={{ scale: 0.96 }}
+                  className="min-h-[56px] w-full rounded-2xl bg-kiwi text-base font-extrabold text-white shadow-kiwi-glow hover:bg-kiwi-dark"
+                >
+                  {index + 1 >= questions.length
+                    ? t("study.finish")
+                    : t("study.next")}
+                </motion.button>
+              </motion.div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

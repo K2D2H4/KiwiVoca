@@ -40,12 +40,20 @@ export default function TypingQuiz({
 
   const [index, setIndex] = useState(0);
   const [value, setValue] = useState("");
-  const [phase, setPhase] = useState<Phase>("input");
-  const [score, setScore] = useState(0);
   const [outcomes, setOutcomes] = useState<StudyOutcome[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const card = queue[index];
+  // outcomes 는 문제 순서대로 쌓임 — index 위치에 있으면 이미 답한 문제(리뷰)
+  const answered = outcomes[index];
+  const phase: Phase = answered
+    ? answered.isCorrect
+      ? "correct"
+      : "wrong"
+    : "input";
+  const score = outcomes.filter((o) => o.isCorrect).length;
+  // 리뷰 중엔 당시 입력했던 답을 보여줌
+  const displayValue = answered ? (answered.userAnswer ?? "") : value;
 
   // 현재 문항 term 을 미리 합성해 정답 노출 시 발음 버튼 지연 완화(캐시 워밍)
   useEffect(() => {
@@ -54,13 +62,14 @@ export default function TypingQuiz({
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!card || phase !== "input" || !value.trim()) return;
+    if (!card || answered || !value.trim()) return;
     const ok = isAnswerCorrect(value, card.term);
-    setPhase(ok ? "correct" : "wrong");
     play(ok ? "correct" : "wrong");
-    if (ok) setScore((p) => p + 1);
     onAnswer(card.id, ok);
-    setOutcomes((p) => [...p, { cardId: card.id, isCorrect: ok }]);
+    setOutcomes((p) => [
+      ...p,
+      { cardId: card.id, isCorrect: ok, userAnswer: value, correctAnswer: card.term },
+    ]);
   };
 
   const onNext = () => {
@@ -69,11 +78,19 @@ export default function TypingQuiz({
       onComplete(outcomes);
       return;
     }
+    // 다음이 미답 문제(프론티어)면 입력 초기화 + 자동 포커스, 이미 답한 문제면 리뷰 유지
+    const nextAnswered = outcomes[index + 1] != null;
     setIndex((p) => p + 1);
-    setValue("");
-    setPhase("input");
-    // 다음 문제 자동 포커스
-    window.setTimeout(() => inputRef.current?.focus(), 60);
+    if (!nextAnswered) {
+      setValue("");
+      window.setTimeout(() => inputRef.current?.focus(), 60);
+    }
+  };
+
+  // 이전 문제 — 답한 문제는 리뷰(공개 상태)로 보임
+  const goPrev = () => {
+    if (index === 0) return;
+    setIndex((p) => p - 1);
   };
 
   if (!card) return null;
@@ -87,6 +104,9 @@ export default function TypingQuiz({
         current={index + 1}
         total={queue.length}
         right={<ScoreChip score={score} />}
+        dirty={outcomes.length > 0}
+        onPrev={goPrev}
+        prevDisabled={index === 0}
       />
 
       <div className="mx-auto flex w-full max-w-screen-sm flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -124,7 +144,7 @@ export default function TypingQuiz({
           >
             <input
               ref={inputRef}
-              value={value}
+              value={displayValue}
               onChange={(e) => setValue(e.target.value)}
               disabled={revealed}
               autoFocus

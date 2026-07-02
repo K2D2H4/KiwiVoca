@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Check, Info, BookOpen, RotateCcw, Home } from "lucide-react";
+import { Check, Info, BookOpen, RotateCcw, Home, ChevronDown } from "lucide-react";
 import KiwiMark from "../components/KiwiMark";
 import KiwiBuddy, { type KiwiMood } from "../components/KiwiBuddy";
 import StudyTopBar from "../components/study/StudyTopBar";
@@ -14,7 +14,12 @@ import GrammarOptionsSheet, {
   type GrammarPracticeOptions,
 } from "../components/study/GrammarOptionsSheet";
 import { Button, Card } from "../components/ui";
-import { useGrammarFilters, usePractice, useGrammarAnswer } from "../hooks/useGrammar";
+import {
+  useGrammarFilters,
+  useGrammarItemsForDecks,
+  usePractice,
+  useGrammarAnswer,
+} from "../hooks/useGrammar";
 import { useCountUp } from "../hooks/useCountUp";
 import { useSound } from "../hooks/useSound";
 import { isAnswerCorrect, shuffle } from "../lib/grading";
@@ -25,6 +30,7 @@ interface Outcome {
   problemId: number; // 출제 순서 인덱스(고유 키 — problem_id 미저장)
   itemId: number;
   isCorrect: boolean;
+  userAnswer: string; // 결과 리뷰 "내 답 vs 정답"용
 }
 
 export default function GrammarPractice() {
@@ -62,6 +68,8 @@ export default function GrammarPractice() {
   const configured = params.get("start") === "1";
 
   const filtersQuery = useGrammarFilters(deckIds);
+  // QA-18: 옵션 시트에서 연습할 문법 항목을 직접 고를 수 있게 항목 목록 로드
+  const itemsQuery = useGrammarItemsForDecks(itemMode ? [] : deckIds);
   const practice = usePractice();
   const {
     mutate: runPractice,
@@ -138,12 +146,16 @@ export default function GrammarPractice() {
       if (opts.categories.length)
         next.set("categories", opts.categories.join(","));
       else next.delete("categories");
+      // QA-18: 시트에서 항목을 골랐으면 items 로 전달(전체 선택이면 필터 방식 유지).
+      // itemMode(딥링크 진입)의 기존 items 파라미터는 건드리지 않는다.
+      if (opts.itemIds.length) next.set("items", opts.itemIds.join(","));
+      else if (!itemMode) next.delete("items");
       next.set("scope", opts.scope);
       next.set("limit", String(opts.limit));
       setParams(next, { replace: true });
       setSheetOpen(false);
     },
-    [params, setParams, resetPractice]
+    [params, setParams, resetPractice, itemMode]
   );
 
   // 덱·항목 모두 미지정 — 잘못된 진입
@@ -163,6 +175,8 @@ export default function GrammarPractice() {
           open={sheetOpen}
           levels={filtersQuery.data?.levels ?? []}
           loading={filtersQuery.isLoading}
+          items={itemsQuery.data}
+          itemsLoading={itemsQuery.isLoading}
           itemMode={itemMode}
           onClose={close}
           onStart={startWith}
@@ -259,20 +273,22 @@ function PracticeRunner({
   const [showContext, setShowContext] = useState(false);
 
   const problem = queue[index];
+  // outcomes 는 출제 순서대로 쌓임 — index 위치에 있으면 이미 답한 문제(리뷰)
+  const reviewOutcome = outcomes[index];
 
   const handleAnswered = useCallback(
-    (ok: boolean) => {
-      if (!problem) return;
+    (ok: boolean, userAnswer: string) => {
+      if (!problem || outcomes[index]) return;
       play(ok ? "correct" : "wrong");
       if (ok) setScore((s) => s + 1);
       setOutcomes((o) => [
         ...o,
-        { problemId: index, itemId: problem.item_id, isCorrect: ok },
+        { problemId: index, itemId: problem.item_id, isCorrect: ok, userAnswer },
       ]);
       // 진척 기록(후속, 실패해도 흐름 진행)
       answerMut.mutate({ item_id: problem.item_id, is_correct: ok });
     },
-    [problem, index, play, answerMut]
+    [problem, index, outcomes, play, answerMut]
   );
 
   const next = useCallback(() => {
@@ -283,6 +299,12 @@ function PracticeRunner({
     }
     setIndex((i) => i + 1);
   }, [index, queue.length]);
+
+  // 이전 문제 — 답한 문제는 리뷰(공개 상태)로 보임
+  const goPrev = useCallback(() => {
+    setShowContext(false);
+    setIndex((i) => Math.max(0, i - 1));
+  }, []);
 
   if (done) {
     return (
@@ -310,6 +332,9 @@ function PracticeRunner({
         current={index + 1}
         total={queue.length}
         right={<ScoreChip score={score} />}
+        dirty={outcomes.length > 0}
+        onPrev={goPrev}
+        prevDisabled={index === 0}
       />
 
       <div className="mx-auto flex w-full max-w-screen-sm flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -369,9 +394,21 @@ function PracticeRunner({
             className="flex flex-1 flex-col"
           >
             {problem.kind === "choice" ? (
-              <ChoiceProblem problem={problem} onAnswered={handleAnswered} onNext={next} isLast={index + 1 >= queue.length} />
+              <ChoiceProblem
+                problem={problem}
+                review={reviewOutcome}
+                onAnswered={handleAnswered}
+                onNext={next}
+                isLast={index + 1 >= queue.length}
+              />
             ) : (
-              <TypingProblem problem={problem} onAnswered={handleAnswered} onNext={next} isLast={index + 1 >= queue.length} />
+              <TypingProblem
+                problem={problem}
+                review={reviewOutcome}
+                onAnswered={handleAnswered}
+                onNext={next}
+                isLast={index + 1 >= queue.length}
+              />
             )}
           </motion.div>
         </AnimatePresence>
@@ -437,12 +474,14 @@ function BaseFormHint({ baseForm }: { baseForm?: string | null }) {
 // ── 객관식 ───────────────────────────────────────────────────
 function ChoiceProblem({
   problem,
+  review,
   onAnswered,
   onNext,
   isLast,
 }: {
   problem: PracticeProblem;
-  onAnswered: (ok: boolean) => void;
+  review?: Outcome; // 이전으로 돌아온 문제 — 답한 상태(리뷰)로 표시
+  onAnswered: (ok: boolean, userAnswer: string) => void;
   onNext: () => void;
   isLast: boolean;
 }) {
@@ -451,14 +490,17 @@ function ChoiceProblem({
     () => shuffle(problem.options ?? []),
     [problem.options]
   );
-  const [picked, setPicked] = useState<string | null>(null);
+  // index 변경 시 리마운트(key=index)되므로 초기값으로 리뷰 상태 복원
+  const [picked, setPicked] = useState<string | null>(
+    review?.userAnswer ?? null
+  );
   const revealed = picked !== null;
   const correct = problem.answer;
 
   const choose = (opt: string) => {
     if (revealed) return;
     setPicked(opt);
-    onAnswered(isAnswerCorrect(opt, correct));
+    onAnswered(isAnswerCorrect(opt, correct), opt);
   };
 
   return (
@@ -556,18 +598,23 @@ function ChoiceProblem({
 // ── 타이핑 ───────────────────────────────────────────────────
 function TypingProblem({
   problem,
+  review,
   onAnswered,
   onNext,
   isLast,
 }: {
   problem: PracticeProblem;
-  onAnswered: (ok: boolean) => void;
+  review?: Outcome; // 이전으로 돌아온 문제 — 답한 상태(리뷰)로 표시
+  onAnswered: (ok: boolean, userAnswer: string) => void;
   onNext: () => void;
   isLast: boolean;
 }) {
   const { t } = useTranslation();
-  const [value, setValue] = useState("");
-  const [phase, setPhase] = useState<"input" | "correct" | "wrong">("input");
+  // index 변경 시 리마운트(key=index)되므로 초기값으로 리뷰 상태 복원
+  const [value, setValue] = useState(review?.userAnswer ?? "");
+  const [phase, setPhase] = useState<"input" | "correct" | "wrong">(
+    review ? (review.isCorrect ? "correct" : "wrong") : "input"
+  );
   const revealed = phase !== "input";
 
   const submit = (e: React.FormEvent) => {
@@ -575,7 +622,7 @@ function TypingProblem({
     if (phase !== "input" || !value.trim()) return;
     const ok = isAnswerCorrect(value, problem.answer);
     setPhase(ok ? "correct" : "wrong");
-    onAnswered(ok);
+    onAnswered(ok, value);
   };
 
   return (
@@ -701,11 +748,13 @@ function GrammarResult({
   const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
   const accCount = useCountUp(accuracy, 1.0, 0.35);
 
-  // problemId 는 출제 순서 인덱스 — queue(problems)에서 바로 조회
-  const wrongProblems = outcomes
+  // problemId 는 출제 순서 인덱스 — queue(problems)에서 바로 조회. 내 답과 함께 묶음.
+  const wrongEntries = outcomes
     .filter((o) => !o.isCorrect)
-    .map((o) => problems[o.problemId])
-    .filter((p): p is PracticeProblem => Boolean(p));
+    .map((o) => ({ outcome: o, problem: problems[o.problemId] }))
+    .filter((e): e is { outcome: Outcome; problem: PracticeProblem } =>
+      Boolean(e.problem)
+    );
 
   const tier = accuracy >= 90 ? "perfect" : accuracy >= 60 ? "good" : "keepGoing";
   const mood: KiwiMood =
@@ -760,29 +809,15 @@ function GrammarResult({
           </Card>
         </div>
 
-        {wrongProblems.length > 0 && (
+        {wrongEntries.length > 0 && (
           <div className="mt-5">
             <p className="mb-2 px-1 text-caption font-bold uppercase tracking-wide text-seed/40">
               {t("grammar.practice.reviewList")}
             </p>
             <ul className="space-y-2">
-              {wrongProblems.map((p, i) => (
+              {wrongEntries.map(({ problem: p, outcome }, i) => (
                 <li key={`${p.item_id}-${i}`}>
-                  <Card
-                    padding="none"
-                    elevation="sm"
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-pop" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body-sm font-bold text-seed">
-                        {p.point}
-                      </span>
-                      <span className="block truncate text-caption font-medium text-seed/45">
-                        {t("study.wrongMsg")} {p.answer}
-                      </span>
-                    </span>
-                  </Card>
+                  <WrongProblemRow problem={p} outcome={outcome} />
                 </li>
               ))}
             </ul>
@@ -795,19 +830,22 @@ function GrammarResult({
       {/* 액션바 — 화면 하단 고정. 복습 목록이 길어도 항상 보임(몰입형, 탭바 없음). */}
       <div className="relative z-raised border-t border-ink-100/70 bg-surface/85 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(46,58,36,0.07)] backdrop-blur-md">
         <div className="mx-auto w-full max-w-screen-sm space-y-2.5">
+          {/* 보조 액션 — 다시 연습 */}
           <Button
-            size="lg"
+            variant="secondary"
+            size="md"
             fullWidth
             leftIcon={<RotateCcw size={18} strokeWidth={2.4} />}
             onClick={onRestart}
           >
             {t("study.restart")}
           </Button>
+          {/* 메인 완료 CTA — 활성 primary(키위 그린)로 명확하게 */}
           <Button
-            variant="ghost"
-            size="md"
+            variant="primary"
+            size="lg"
             fullWidth
-            leftIcon={<Home size={17} strokeWidth={2.4} />}
+            leftIcon={<Home size={18} strokeWidth={2.4} />}
             onClick={onClose}
           >
             {t("study.backHome")}
@@ -815,6 +853,93 @@ function GrammarResult({
         </div>
       </div>
     </div>
+  );
+}
+
+// 틀린 문법 문제 행 — 아코디언으로 "내 답 vs 정답" + 문제 해설 + 문법 설명 즉시 리뷰
+function WrongProblemRow({
+  problem,
+  outcome,
+}: {
+  problem: PracticeProblem;
+  outcome: Outcome;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card padding="none" elevation="sm" className="overflow-hidden">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-left outline-none transition active:bg-ink-50/60 focus-visible:ring-2 focus-visible:ring-kiwi-400"
+      >
+        <span className="h-2 w-2 shrink-0 rounded-full bg-pop" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-body-sm font-bold text-seed">
+            {problem.point}
+          </span>
+          <span className="block truncate text-caption font-medium text-seed/45">
+            {problem.prompt}
+          </span>
+        </span>
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={spring.snappy}
+          className="shrink-0 text-seed/35"
+        >
+          <ChevronDown size={18} strokeWidth={2.6} />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-1.5 px-4 pb-3.5">
+              {/* 내 답(오답 — 코랄) vs 정답(키위 그린) */}
+              <div className="flex items-start gap-2 rounded-xl bg-pop/8 px-3 py-2">
+                <span className="shrink-0 text-caption font-bold text-pop-dark/70">
+                  {t("study.myAnswer")}
+                </span>
+                <span className="min-w-0 flex-1 break-words text-body-sm font-bold text-pop-dark">
+                  {outcome.userAnswer}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 rounded-xl bg-kiwi/10 px-3 py-2">
+                <span className="shrink-0 text-caption font-bold text-kiwi-dark/70">
+                  {t("study.answerLabel")}
+                </span>
+                <span className="min-w-0 flex-1 break-words text-body-sm font-bold text-kiwi-dark">
+                  {problem.answer}
+                </span>
+              </div>
+              {/* 문제 해설 */}
+              {problem.explanation && (
+                <p className="rounded-xl bg-bark/8 px-3 py-2 text-caption font-medium leading-relaxed text-bark">
+                  {problem.explanation}
+                </p>
+              )}
+              {/* 해당 문법 설명 */}
+              <div className="rounded-xl bg-kiwi/8 px-3 py-2 ring-1 ring-kiwi/15">
+                <p className="flex items-center gap-1.5 text-caption font-black text-kiwi-dark">
+                  <BookOpen size={13} strokeWidth={2.6} />
+                  {problem.point}
+                </p>
+                <p className="mt-1 text-caption font-medium leading-relaxed text-seed/65">
+                  {problem.item_explanation}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Card>
   );
 }
 

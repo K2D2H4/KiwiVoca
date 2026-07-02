@@ -115,7 +115,12 @@ export default function Flashcards({
 
   return (
     <div className="flex min-h-[100dvh] flex-col overflow-hidden">
-      <StudyTopBar onClose={onClose} current={index + 1} total={cards.length} />
+      <StudyTopBar
+        onClose={onClose}
+        current={index + 1}
+        total={cards.length}
+        dirty={outcomes.length > 0}
+      />
 
       <div className="mx-auto flex w-full max-w-screen-sm flex-1 flex-col px-5">
         {/* 카드 영역 — 스택 덱 */}

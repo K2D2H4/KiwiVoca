@@ -170,6 +170,12 @@
     "correct": "Correct",
     "wrong": "Wrong",
     "wrongList": "Missed cards",
+    "prevQuestion": "Previous question",
+    "exitConfirmTitle": "Leave this session?",
+    "exitConfirmMessage": "If you leave now, your answers won't be saved.",
+    "exitConfirmCta": "Leave",
+    "myAnswer": "My answer",
+    "answerLabel": "Answer",
     "retryWrong": "Retry {{count}} missed",
     "restart": "Study again",
     "backHome": "Done",
@@ -378,7 +384,13 @@
       "problemCountLabel": "Questions",
       "problemCountPreview": "Make {{count}} questions",
       "summaryAvailableLoading": "Counting grammar…",
-      "summaryAvailableItems": "{{count}} grammar selected"
+      "summaryAvailableItems": "{{count}} grammar selected",
+      "itemsLabel": "Grammar to practice",
+      "selectAll": "Select all",
+      "deselectAll": "Clear all",
+      "itemsAllHint": "Questions are made from all grammar.",
+      "itemsSelectedHint": "Practice only the {{count}} selected items.",
+      "itemsNoneHint": "Select at least one item."
     },
     "practiceItem": "Practice"
   },

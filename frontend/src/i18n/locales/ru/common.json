@@ -172,6 +172,12 @@
     "correct": "Верно",
     "wrong": "Ошибки",
     "wrongList": "Пропущенные",
+    "prevQuestion": "Предыдущий вопрос",
+    "exitConfirmTitle": "Прервать занятие?",
+    "exitConfirmMessage": "Если выйти сейчас, ответы не сохранятся.",
+    "exitConfirmCta": "Выйти",
+    "myAnswer": "Мой ответ",
+    "answerLabel": "Правильный ответ",
     "retryWrong": "Повторить {{count}}",
     "restart": "Учить снова",
     "backHome": "Готово",
@@ -380,7 +386,13 @@
       "problemCountLabel": "Вопросы",
       "problemCountPreview": "Создать {{count}} вопросов",
       "summaryAvailableLoading": "Считаем темы…",
-      "summaryAvailableItems": "Выбрано тем: {{count}}"
+      "summaryAvailableItems": "Выбрано тем: {{count}}",
+      "itemsLabel": "Темы для практики",
+      "selectAll": "Выбрать все",
+      "deselectAll": "Снять все",
+      "itemsAllHint": "Вопросы по всей грамматике.",
+      "itemsSelectedHint": "Практика только по выбранным ({{count}}).",
+      "itemsNoneHint": "Выберите хотя бы одну тему."
     },
     "practiceItem": "Практика"
   },
