@@ -30,7 +30,6 @@ import {
 } from "../components/ui";
 import { LANG_OPTIONS, getLastLangPair, saveLastLangPair } from "../lib/languages";
 import { useDecks } from "../hooks/useDecks";
-import { useReportBusy } from "../store/uiStore";
 import {
   useExtractGrammar,
   useGenerateGrammar,
@@ -140,8 +139,6 @@ export default function GrammarCreate() {
   const grammarDecks = (decks ?? []).filter((d) => d.kind === "grammar");
 
   const loading = extract.isPending || generate.isPending;
-  // 추출/AI 생성 중엔 만들기 FAB 비활성화
-  useReportBusy(loading);
 
   // objectURL 미리보기 — 파일 변경 시 재생성, 언마운트 시 revoke
   useEffect(() => {

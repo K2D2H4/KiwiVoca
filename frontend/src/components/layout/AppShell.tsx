@@ -1,7 +1,7 @@
 // 앱 셸 — 모바일: 하단 탭바 + 중앙 강조 FAB / 데스크탑(md:): 좌측 사이드바.
 // 보호 라우트들을 이 셸로 감싼다. 본문 하단 패딩으로 탭바 가림 방지.
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
@@ -22,7 +22,6 @@ import Sheet from "../ui/Sheet";
 import CreateSheet from "./CreateSheet";
 import { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
-import { useIsBusy } from "../../store/uiStore";
 
 interface TabDef {
   key: "home" | "study" | "explore" | "stats" | "profile";
@@ -36,6 +35,9 @@ const TABS: TabDef[] = [
   { key: "study", to: "/study", icon: Layers },
   { key: "profile", to: "/profile", icon: User },
 ];
+
+// 생성 화면 라우트 — 여기서 만들기(+) 진입을 막아 작성 중 입력 유실 방지.
+const CREATE_ROUTES = ["/decks/new", "/import", "/grammar/new"];
 
 // 데스크탑 사이드바 네비 (모바일보다 한 칸 더 — 통계 포함)
 const SIDEBAR_TABS: TabDef[] = [
@@ -54,8 +56,11 @@ export default function AppShell() {
 
   // 통합 만들기 시트 — FAB/사이드바 "만들기" 공용
   const [createOpen, setCreateOpen] = useState(false);
-  // AI 생성(단어/문법) 진행 중엔 만들기 진입 차단
-  const busy = useIsBusy();
+  // 이미 생성 화면(단어장/문법)이면 만들기 진입 차단 — 작성 중 내용 유실 방지
+  const { pathname } = useLocation();
+  const onCreateScreen = CREATE_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(r + "/")
+  );
 
   return (
     <div className="min-h-[100dvh] bg-cream no-x md:flex md:h-[100dvh] md:overflow-hidden">
@@ -102,7 +107,7 @@ export default function AppShell() {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            disabled={busy}
+            disabled={onCreateScreen}
             className="mt-2 flex items-center gap-3 rounded-2xl bg-kiwi px-3.5 py-3 text-body-sm font-bold text-white shadow-kiwi-glow transition active:scale-[0.98] hover:bg-kiwi-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:bg-kiwi"
           >
             <Plus size={22} strokeWidth={2.6} />
@@ -162,14 +167,14 @@ export default function AppShell() {
           <motion.button
             type="button"
             onClick={() => setCreateOpen(true)}
-            disabled={busy}
+            disabled={onCreateScreen}
             aria-label={t("create.title")}
-            whileTap={busy ? undefined : { scale: 0.9 }}
+            whileTap={onCreateScreen ? undefined : { scale: 0.9 }}
             transition={{ type: "spring", stiffness: 500, damping: 26 }}
             className={[
               "pointer-events-auto flex items-center justify-center rounded-full text-white outline-none ring-4 ring-cream",
               "focus-visible:ring-kiwi-300",
-              busy
+              onCreateScreen
                 ? "bg-kiwi opacity-40 shadow-none cursor-not-allowed"
                 : createOpen
                   ? "bg-kiwi-600 shadow-kiwi-glow"
