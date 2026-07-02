@@ -53,8 +53,8 @@
   },
   "create": {
     "title": "Create",
-    "whatTitle": "What do you want to make?",
-    "whatHint": "Choose vocabulary or grammar.",
+    "whatTitle": "What deck do you want to make?",
+    "whatHint": "Vocabulary and grammar are both decks. Pick a type.",
     "vocabTitle": "Vocabulary",
     "vocabDesc": "Collect words and meanings to memorize",
     "grammarTitle": "Grammar",

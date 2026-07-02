@@ -53,8 +53,8 @@
   },
   "create": {
     "title": "만들기",
-    "whatTitle": "무엇을 만들까요?",
-    "whatHint": "단어장 또는 문법 중에서 골라요.",
+    "whatTitle": "무슨 덱을 만들까요?",
+    "whatHint": "단어장과 문법 모두 '덱'으로 만들어요. 종류를 골라주세요.",
     "vocabTitle": "단어장",
     "vocabDesc": "단어와 뜻을 모아 외워요",
     "grammarTitle": "문법",

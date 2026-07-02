@@ -53,8 +53,8 @@
   },
   "create": {
     "title": "作成",
-    "whatTitle": "何を作りますか？",
-    "whatHint": "単語か文法を選んでください。",
+    "whatTitle": "どんなデッキを作りますか？",
+    "whatHint": "単語も文法もどちらもデッキです。種類を選んでください。",
     "vocabTitle": "単語",
     "vocabDesc": "単語と意味を集めて覚えます",
     "grammarTitle": "文法",
