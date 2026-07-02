@@ -78,6 +78,18 @@ export default function DeckNew() {
             maxLength={200}
             className="w-full resize-none rounded-2xl border-2 border-transparent bg-cream/70 px-4 py-3.5 text-base text-seed placeholder:text-seed/30 shadow-inner-soft transition focus:border-kiwi focus:bg-surface focus:outline-none"
           />
+          {/* 글자 수 카운터 — 190자부터 한계 임박 강조 */}
+          <span
+            aria-live="polite"
+            className={[
+              "mt-1 block text-right text-caption tabular-nums transition-colors",
+              description.length >= 190
+                ? "font-bold text-pop"
+                : "text-seed/40",
+            ].join(" ")}
+          >
+            {description.length}/200
+          </span>
         </label>
 
         {/* kind 토글 */}
@@ -106,7 +118,8 @@ export default function DeckNew() {
             onChange={(e) => setLangTerm(e.target.value)}
           >
             {LANG_OPTIONS.map((l) => (
-              <option key={l.code} value={l.code}>
+              // 뜻 언어로 이미 선택된 언어는 비활성화 — 동일 언어쌍 방지
+              <option key={l.code} value={l.code} disabled={l.code === langDef}>
                 {l.label}
               </option>
             ))}
@@ -118,7 +131,8 @@ export default function DeckNew() {
             onChange={(e) => setLangDef(e.target.value)}
           >
             {LANG_OPTIONS.map((l) => (
-              <option key={l.code} value={l.code}>
+              // 학습 언어로 이미 선택된 언어는 비활성화 — 동일 언어쌍 방지
+              <option key={l.code} value={l.code} disabled={l.code === langTerm}>
                 {l.label}
               </option>
             ))}

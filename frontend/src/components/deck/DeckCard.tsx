@@ -59,7 +59,8 @@ export default function DeckCard({
       <>
         {/* 상단: kind 칩 + 언어쌍 */}
         <div className="mb-3 flex items-center gap-1.5">
-          <Badge tone={isGrammar ? "neutral" : "kiwi"} size="sm">
+          {/* 문법 덱은 bark 톤 — 하단 GraduationCap 아이콘 색과 통일 */}
+          <Badge tone={isGrammar ? "bark" : "kiwi"} size="sm">
             {isGrammar ? t("deck.kindGrammar") : t("deck.kindVocab")}
           </Badge>
           <Badge tone="outline" size="sm" className="ml-auto">

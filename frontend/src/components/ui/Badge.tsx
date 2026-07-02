@@ -1,7 +1,7 @@
 // Badge / Chip — 라벨 알약. 언어쌍·kind·박스레벨 등 메타 표시용.
 import type { HTMLAttributes, ReactNode } from "react";
 
-type Tone = "kiwi" | "neutral" | "pop" | "info" | "warning" | "success" | "outline";
+type Tone = "kiwi" | "neutral" | "pop" | "info" | "warning" | "success" | "outline" | "bark";
 type Size = "sm" | "md";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -19,6 +19,9 @@ const TONES: Record<Tone, string> = {
   warning: "bg-warning-soft text-warning",
   success: "bg-success-soft text-success",
   outline: "bg-transparent text-seed/60 ring-1 ring-border",
+  // 문법(grammar) 전용 — GraduationCap 아이콘(text-bark)과 같은 브라운 계열.
+  // 크림 배경 + bark 링이라 흰 카드/키위 그린 히어로 어디서든 읽힌다.
+  bark: "bg-cream text-bark ring-1 ring-bark/30",
 };
 
 const SIZES: Record<Size, string> = {
